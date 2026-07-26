@@ -33,6 +33,8 @@ function serverSubtitle(row) {
   if (row.country) parts.push(row.country)
   var bw = formatBandwidth(row.bandwidth)
   if (bw) parts.push(bw)
+  var usage = formatBandwidth(row.usage)
+  if (usage) parts.push(usage + " used")
   if (row.users) parts.push(row.users + " users")
   var load = formatLoad(row.load)
   if (load) parts.push(load + " load")
