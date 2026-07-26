@@ -60,7 +60,7 @@ fetch_exit() {
     printf '%s\n' "$EXIT_CACHE_FILE"
     return
   fi
-  if curl -fsSL "$EXIT_URL" -o "$EXIT_CACHE_FILE.tmp"; then
+  if curl -4 -fsSL "$EXIT_URL" -o "$EXIT_CACHE_FILE.tmp"; then
     mv "$EXIT_CACHE_FILE.tmp" "$EXIT_CACHE_FILE"
   else
     rm -f "$EXIT_CACHE_FILE.tmp"

@@ -523,8 +523,9 @@ Panel {
             }
           }
 
-          PanelSectionHeader { text: "FILTER"; foreground: root.foreground; fontFamily: root.fontFamily }
+          PanelSectionHeader { visible: root.mode !== "auto"; text: "FILTER"; foreground: root.foreground; fontFamily: root.fontFamily }
           RowLayout {
+            visible: root.mode !== "auto"
             Layout.fillWidth: true
             spacing: Style.space(6)
             Repeater {
