@@ -39,6 +39,7 @@ Panel {
   property var countries: []
   property var servers: []
   property int listIndex: 0
+  property int hoverIndex: -1
 
   readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/local.airvpn/bin/omarchy-airvpn"
   readonly property var modes: ["auto", "country", "server"]
@@ -79,6 +80,7 @@ Panel {
   }
 
   function selectedCountryLabel() {
+    if (mode === "country" && !selectedCountry) return "country"
     if (mode === "country") return selectedCountryName || selectedCountry || "country"
     var server = selectedServerInfo()
     if (mode === "server" && server) return server.name
@@ -88,6 +90,8 @@ Panel {
   }
 
   function heroStatusText() {
+    if (!connected && mode === "country" && !selectedCountry) return "Select country"
+    if (!connected && mode === "server" && !selectedServer) return "Select server"
     if (!connected) return "Connect to " + selectedCountryLabel()
     if (exitLoading) return "Connected to AirVPN"
     if (exitCountry) return "Connected to " + exitCountry
@@ -119,6 +123,13 @@ Panel {
 
   function barLabel() {
     return "VPN"
+  }
+
+  function canConnect() {
+    if (busy || !depsInstalled || !hasApiKey) return false
+    if (mode === "country" && !selectedCountry) return false
+    if (mode === "server" && !selectedServer) return false
+    return true
   }
 
   function exitMatchesPending(data) {
@@ -235,7 +246,7 @@ Panel {
   }
 
   function connectSelection() {
-    if (busy || !depsInstalled || !hasApiKey) return
+    if (!canConnect()) return
     var cmd = [helper, "connect", "--mode", mode, "--filter", filter]
     if (currentDevice !== "") cmd.push("--device", currentDevice)
     if (mode === "country") {
@@ -390,6 +401,7 @@ Panel {
             text: "VPN"
             bordered: true
             active: root.connected
+            interactive: root.connected || root.canConnect()
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
@@ -556,15 +568,19 @@ Panel {
             delegate: CursorSurface {
               required property var modelData
               required property int index
+              readonly property bool rowHovered: root.hoverIndex === index
               width: ListView.view.width
               height: delegateColumn.implicitHeight
               foreground: root.foreground
+              hasCursor: rowHovered
               current: root.mode === "country" ? (root.selectedCountry === (modelData.code || modelData.name)) : (root.selectedServer === modelData.name || root.currentServer === modelData.name)
 
               MouseArea {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                onEntered: root.hoverIndex = index
+                onExited: if (root.hoverIndex === index) root.hoverIndex = -1
                 onClicked: {
                   root.selectRow(index)
                 }
@@ -616,6 +632,7 @@ Panel {
             text: root.connected ? "Disconnect" : "Connect"
             bordered: true
             active: root.connected
+            interactive: root.connected || root.canConnect()
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
