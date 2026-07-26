@@ -327,6 +327,10 @@ Panel {
     else if (focusSection === "mode") selectMode(modes[modeIndex])
     else if (focusSection === "filter") selectFilter(filters[Math.max(0, filterIndex)])
     else if (focusSection === "list") {
+      if (connected) {
+        disconnect()
+        return
+      }
       selectRow(listIndex)
       if (mode === "country") Qt.callLater(function() { root.connectSelection() })
     }
