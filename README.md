@@ -18,9 +18,11 @@ Minimal AirVPN bar widget for Omarchy Quickshell.
 - `nmcli`.
 - `curl`.
 - `python`.
-- NetworkManager AirVPN VPN plugin registered as `vpn-type airvpn`.
+- `networkmanager-airvpn-core` from AUR.
 
-This plugin intentionally treats `networkmanager-airvpn` as a hard dependency. It does not fall back to OpenVPN imports.
+This plugin intentionally treats `networkmanager-airvpn-core` as a hard dependency. It does not fall back to OpenVPN imports or implement AirVPN tunnel management itself.
+
+Using `networkmanager-airvpn-core` is a good fit because it gives Omarchy a small nmcli-only backend that owns the security-sensitive parts: AirVPN profile generation, NetworkManager VPN activation, OpenVPN execution, caching, and secrets. Reimplementing that inside a Quickshell plugin would mean duplicating VPN profile generation, private-key/profile storage, error handling, NetworkManager integration, and OpenVPN lifecycle code in a UI plugin. Depending on the NetworkManager plugin keeps this project focused on the Omarchy UI and lets NetworkManager remain the single source of truth for VPN state.
 
 ## Install Locally
 
@@ -38,7 +40,9 @@ omarchy bar plugin add local.airvpn
 
 ## AirVPN Setup
 
-Create or connect once through NetworkManager so the AirVPN API key is stored as a NetworkManager secret. The helper manages a connection named `AirVPN` by default.
+Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, optionally set a device name, and save.
+
+The helper manages a NetworkManager connection named `AirVPN` by default.
 
 Override the connection name if needed:
 
@@ -56,6 +60,7 @@ bin/omarchy-airvpn connect --mode auto --filter 20gbit
 bin/omarchy-airvpn connect --mode country --country ch
 bin/omarchy-airvpn connect --mode server --server Achernar
 bin/omarchy-airvpn disconnect
+bin/omarchy-airvpn save-settings --api-key YOUR_KEY --device YOUR_DEVICE
 ```
 
 ## Notes

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CONNECTION_NAME="${OMARCHY_AIRVPN_CONNECTION:-AirVPN}"
+PACKAGE_NAME="networkmanager-airvpn-core"
 STATUS_URL="${OMARCHY_AIRVPN_STATUS_URL:-https://airvpn.org/api/status/}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-airvpn"
 CACHE_FILE="$CACHE_DIR/status.json"
@@ -25,11 +26,21 @@ check_deps() {
   need nmcli
   need python
   need curl
-  if pacman -Q networkmanager-airvpn >/dev/null 2>&1; then return; fi
+  if pacman -Q "$PACKAGE_NAME" >/dev/null 2>&1; then return; fi
   if [[ -e /usr/lib/NetworkManager/VPN/nm-airvpn-service.name ]]; then return; fi
   if [[ -e /usr/lib/NetworkManager/nm-airvpn-service ]]; then return; fi
   if [[ -e /usr/lib/nm-airvpn-service ]]; then return; fi
-  die_json "NetworkManager AirVPN plugin is not installed. Install networkmanager-airvpn from AUR."
+  die_json "NetworkManager AirVPN core plugin is not installed. Install networkmanager-airvpn-core from AUR."
+}
+
+deps_json() {
+  if check_deps >/dev/null 2>&1; then printf '{"ok":true,"installed":true}\n'; else printf '{"ok":true,"installed":false,"package":"%s"}\n' "$PACKAGE_NAME"; fi
+}
+
+install_deps() {
+  need omarchy
+  omarchy pkg aur add "$PACKAGE_NAME"
+  deps_json
 }
 
 active_connection() {
@@ -38,7 +49,7 @@ active_connection() {
 
 status_json() {
   need nmcli
-  local active state server mode country protocol port device
+  local active state server mode country protocol port device has_key
   active="$(active_connection || true)"
   state="not-connected"
   if [[ -n "$active" ]]; then state="connected"; fi
@@ -49,6 +60,7 @@ status_json() {
   protocol=""
   port=""
   device=""
+  has_key="false"
   if nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
     local data
     data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
@@ -56,9 +68,10 @@ status_json() {
     protocol="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^protocol$/ { print $2; exit }')"
     port="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^port$/ { print $2; exit }')"
     device="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^device$/ { print $2; exit }')"
+    if nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'; then has_key="true"; fi
   fi
 
-  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" <<'PY'
+  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" "$has_key" <<'PY'
 import json, sys
 print(json.dumps({
   "ok": True,
@@ -71,8 +84,44 @@ print(json.dumps({
   "protocol": sys.argv[6],
   "port": sys.argv[7],
   "device": sys.argv[8],
+  "hasApiKey": sys.argv[9] == "true",
 }))
 PY
+}
+
+ensure_connection() {
+  local data=${1:-server=earth,protocol=udp,port=443}
+  if ! nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
+    nmcli connection add type vpn ifname -- vpn-type airvpn con-name "$CONNECTION_NAME" vpn.data "$data" >/dev/null
+  fi
+}
+
+save_settings() {
+  check_deps
+  local api_key="" device=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --api-key) api_key=$2; shift 2 ;;
+      --device) device=$2; shift 2 ;;
+      *) die_json "Unknown settings option: $1" ;;
+    esac
+  done
+  ensure_connection
+  if [[ -n "$api_key" ]]; then nmcli connection modify "$CONNECTION_NAME" vpn.secrets "api-key=$api_key" >/dev/null; fi
+  if [[ -n "$device" ]]; then
+    local data next
+    data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
+    next="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 != "device" && $1 != "" { print }' | paste -sd, -)"
+    if [[ -n "$next" ]]; then next="$next,device=$device"; else next="server=earth,protocol=udp,port=443,device=$device"; fi
+    nmcli connection modify "$CONNECTION_NAME" vpn.data "$next" >/dev/null
+  fi
+  status_json
+}
+
+devices_json() {
+  # The AirVPN API endpoint for account devices is not public/stable. Keep the
+  # UI functional with a manual field unless a future endpoint is configured.
+  printf '{"ok":true,"devices":[]}\n'
 }
 
 fetch_status() {
@@ -201,11 +250,8 @@ connect_vpn() {
   local data="server=$server,protocol=$protocol,port=$port"
   if [[ -n "$device" ]]; then data="$data,device=$device"; fi
 
-  if ! nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
-    nmcli connection add type vpn ifname -- vpn-type airvpn con-name "$CONNECTION_NAME" vpn.data "$data" >/dev/null
-  else
-    nmcli connection modify "$CONNECTION_NAME" vpn.data "$data" >/dev/null
-  fi
+  ensure_connection "$data"
+  nmcli connection modify "$CONNECTION_NAME" vpn.data "$data" >/dev/null
   nmcli connection up "$CONNECTION_NAME" >/dev/null
   status_json
 }
@@ -225,5 +271,9 @@ case "$cmd" in
   connect) connect_vpn "$@" ;;
   disconnect) disconnect_vpn ;;
   check) check_deps; printf '{"ok":true}\n' ;;
+  deps) deps_json ;;
+  install-deps) install_deps ;;
+  save-settings) save_settings "$@" ;;
+  devices) devices_json ;;
   *) die_json "Unknown command: $cmd" ;;
 esac
