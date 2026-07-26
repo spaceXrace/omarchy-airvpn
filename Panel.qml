@@ -162,15 +162,7 @@ Panel {
   }
 
   function countryRows() {
-    var rows = countries.slice()
-    if (!selectedCountry) return rows
-    rows.sort(function(a, b) {
-      var ak = a && (a.code || a.name) === selectedCountry ? 0 : 1
-      var bk = b && (b.code || b.name) === selectedCountry ? 0 : 1
-      if (ak !== bk) return ak - bk
-      return String(a.name || "").localeCompare(String(b.name || ""))
-    })
-    return rows
+    return countries
   }
 
   function serverSectionTitle(index) {
@@ -267,18 +259,13 @@ Panel {
     var cmd = [helper, "connect", "--mode", mode, "--filter", filter]
     if (currentDevice !== "") cmd.push("--device", currentDevice)
     if (mode === "country") {
-      var c = currentList()[listIndex]
-      if (!c) return
-      selectedCountry = c.code || c.name
-      selectedCountryName = c.name || selectedCountry
+      if (!selectedCountry) return
       selectedServer = ""
       cmd.push("--country", selectedCountry)
     }
     if (mode === "server") {
-      var s = currentList()[listIndex]
-      if (!s) return
-      selectedServer = s.name
-      cmd.push("--server", s.name)
+      if (!selectedServer) return
+      cmd.push("--server", selectedServer)
     }
     pendingMode = mode
     pendingCountry = selectedCountry
