@@ -40,6 +40,7 @@ Panel {
   property var servers: []
   property int listIndex: 0
   property int hoverIndex: -1
+  property bool selectionPulse: false
 
   readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/local.airvpn/bin/omarchy-airvpn"
   readonly property var modes: ["auto", "country", "server"]
@@ -101,6 +102,10 @@ Panel {
     return "Connected to AirVPN"
   }
 
+  function heroColor() {
+    return selectionPulse ? urgent : foreground
+  }
+
   function routeDetailText() {
     if (!connected) return "AirVPN"
     if (exitLoading) return "Loading connection details..."
@@ -129,6 +134,17 @@ Panel {
     if (busy || !depsInstalled || !hasApiKey) return false
     if (mode === "country" && !selectedCountry) return false
     if (mode === "server" && !selectedServer) return false
+    return true
+  }
+
+  function pulseMissingSelection() {
+    if (connected || mode === "auto") return false
+    if ((mode === "country" && selectedCountry) || (mode === "server" && selectedServer)) return false
+    selectionPulse = false
+    Qt.callLater(function() {
+      selectionPulse = true
+      selectionPulseTimer.restart()
+    })
     return true
   }
 
@@ -246,6 +262,7 @@ Panel {
   }
 
   function connectSelection() {
+    if (pulseMissingSelection()) return
     if (!canConnect()) return
     var cmd = [helper, "connect", "--mode", mode, "--filter", filter]
     if (currentDevice !== "") cmd.push("--device", currentDevice)
@@ -331,6 +348,13 @@ Panel {
     onTriggered: root.refresh()
   }
 
+  Timer {
+    id: selectionPulseTimer
+    interval: 420
+    repeat: false
+    onTriggered: root.selectionPulse = false
+  }
+
   Process {
     id: depsProc
     stdout: StdioCollector { id: depsOut }
@@ -401,7 +425,7 @@ Panel {
             text: "VPN"
             bordered: true
             active: root.connected
-            enabled: root.connected || root.canConnect()
+            opacity: root.connected || root.canConnect() ? 1 : 0.55
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
@@ -412,10 +436,17 @@ Panel {
             Text {
               Layout.fillWidth: true
               text: root.heroStatusText()
-              color: root.foreground
+              color: root.heroColor()
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
               elide: Text.ElideRight
+              SequentialAnimation on opacity {
+                running: root.selectionPulse
+                loops: 2
+                NumberAnimation { to: 0.35; duration: 80; easing.type: Easing.OutCubic }
+                NumberAnimation { to: 1.0; duration: 100; easing.type: Easing.OutCubic }
+              }
+              Behavior on color { ColorAnimation { duration: 90 } }
             }
             Text {
               Layout.fillWidth: true
@@ -565,30 +596,16 @@ Panel {
             spacing: Style.space(4)
             model: root.currentList()
 
-            delegate: CursorSurface {
+            delegate: Item {
               required property var modelData
               required property int index
               readonly property bool rowHovered: root.hoverIndex === index
               width: ListView.view.width
               height: delegateColumn.implicitHeight
-              foreground: root.foreground
-              hasCursor: rowHovered
-              current: root.mode === "country" ? (root.selectedCountry === (modelData.code || modelData.name)) : (root.selectedServer === modelData.name || root.currentServer === modelData.name)
-
-              MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onEntered: root.hoverIndex = index
-                onExited: if (root.hoverIndex === index) root.hoverIndex = -1
-                onClicked: {
-                  root.selectRow(index)
-                }
-              }
 
               Column {
                 id: delegateColumn
-                anchors.fill: parent
+                width: parent.width
                 spacing: Style.space(4)
 
                 PanelSectionHeader {
@@ -599,28 +616,46 @@ Panel {
                   height: visible ? implicitHeight : 0
                 }
 
-                RowLayout {
-                  id: row
-                  width: parent.width
-                  height: implicitHeight + Style.space(14)
-                  anchors.leftMargin: Style.space(10)
-                  anchors.rightMargin: Style.space(10)
-                  spacing: Style.space(10)
+                CursorSurface {
+                  id: rowSurface
+                  width: parent.width - Style.space(12)
+                  height: row.implicitHeight + Style.space(14)
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  foreground: root.foreground
+                  hasCursor: rowHovered
+                  current: root.mode === "country" ? (root.selectedCountry === (modelData.code || modelData.name)) : (root.selectedServer === modelData.name || root.currentServer === modelData.name)
 
-                  Text {
-                    Layout.fillWidth: true
-                    text: modelData.name
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.body
-                    elide: Text.ElideRight
+                  MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: root.hoverIndex = index
+                    onExited: if (root.hoverIndex === index) root.hoverIndex = -1
+                    onClicked: root.selectRow(index)
                   }
-                  Text {
-                    text: root.mode === "country" ? Model.countrySubtitle(modelData) : Model.serverSubtitle(modelData)
-                    color: root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.bodySmall
-                    elide: Text.ElideRight
+
+                  RowLayout {
+                    id: row
+                    anchors.fill: parent
+                    anchors.leftMargin: Style.space(10)
+                    anchors.rightMargin: Style.space(10)
+                    spacing: Style.space(10)
+
+                    Text {
+                      Layout.fillWidth: true
+                      text: modelData.name
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.body
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      text: root.mode === "country" ? Model.countrySubtitle(modelData) : Model.serverSubtitle(modelData)
+                      color: root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                      elide: Text.ElideRight
+                    }
                   }
                 }
               }
@@ -632,7 +667,7 @@ Panel {
             text: root.connected ? "Disconnect" : "Connect"
             bordered: true
             active: root.connected
-            enabled: root.connected || root.canConnect()
+            opacity: root.connected || root.canConnect() ? 1 : 0.55
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
