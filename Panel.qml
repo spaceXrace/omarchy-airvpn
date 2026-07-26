@@ -275,6 +275,7 @@ Panel {
 
   function ensureFocusSection() {
     if (focusSection === "filter" && mode === "auto") focusSection = "mode"
+    if (focusSection === "filter" && filterIndex < 0) filterIndex = 0
     if (focusSection === "list" && visibleListLength() === 0) focusSection = mode === "auto" ? "connect" : "filter"
     if (listIndex >= visibleListLength()) listIndex = Math.max(0, visibleListLength() - 1)
     if (modeIndex < 0) modeIndex = Math.max(0, modes.indexOf(mode))
@@ -284,6 +285,8 @@ Panel {
 
   function moveCursor(dx, dy) {
     cursorActive = true
+    hoverIndex = -1
+    heroHover = false
     ensureFocusSection()
     if (dx !== 0) {
       if (focusSection === "hero") {
@@ -317,6 +320,7 @@ Panel {
     } else if (focusSection === "connect") {
       if (dy < 0) focusSection = visibleListLength() > 0 ? "list" : (mode === "auto" ? "mode" : "filter")
     }
+    ensureFocusSection()
   }
 
   function activateCursor() {
@@ -537,7 +541,11 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onEntered: root.heroHover = true
+              onEntered: {
+                root.cursorActive = false
+                root.hoverIndex = -1
+                root.heroHover = true
+              }
               onExited: root.heroHover = false
               onClicked: root.toggleVpn()
             }
@@ -750,7 +758,11 @@ Panel {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: root.hoverIndex = index
+                    onEntered: {
+                      root.cursorActive = false
+                      root.heroHover = false
+                      root.hoverIndex = index
+                    }
                     onExited: if (root.hoverIndex === index) root.hoverIndex = -1
                     onClicked: root.selectRow(index)
                   }
