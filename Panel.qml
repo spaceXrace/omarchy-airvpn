@@ -433,12 +433,12 @@ Panel {
 
           Item {
             opacity: root.connected || root.canConnect() ? 1 : 0.55
-            implicitWidth: Style.space(34)
-            implicitHeight: Style.space(34)
+            implicitWidth: Style.space(44)
+            implicitHeight: Style.space(44)
 
             AirCloudIcon {
               anchors.centerIn: parent
-              size: Style.space(30)
+              size: Style.space(40)
               color: root.connected ? root.foreground : root.dim
               ring: true
             }
@@ -733,7 +733,7 @@ Panel {
       radius: width / 2
       color: "transparent"
       border.color: icon.color
-      border.width: Math.max(1, icon.size / 16)
+      border.width: Math.max(1, Math.min(2, icon.size / 20))
     }
 
     Repeater {
