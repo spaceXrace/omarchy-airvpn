@@ -25,13 +25,11 @@ check_deps() {
   need nmcli
   need python
   need curl
-  if ! nmcli -f VPN-TYPE connection show 2>/dev/null | grep -qx 'airvpn'; then
-    # The vpn-type only appears once a connection exists on some NetworkManager builds.
-    if ! nmcli connection add type vpn ifname -- vpn-type airvpn con-name __omarchy_airvpn_probe__ >/tmp/omarchy-airvpn-probe.log 2>&1; then
-      die_json "NetworkManager AirVPN plugin is not installed or not registered"
-    fi
-    nmcli connection delete __omarchy_airvpn_probe__ >/dev/null 2>&1 || true
-  fi
+  if pacman -Q networkmanager-airvpn >/dev/null 2>&1; then return; fi
+  if [[ -e /usr/lib/NetworkManager/VPN/nm-airvpn-service.name ]]; then return; fi
+  if [[ -e /usr/lib/NetworkManager/nm-airvpn-service ]]; then return; fi
+  if [[ -e /usr/lib/nm-airvpn-service ]]; then return; fi
+  die_json "NetworkManager AirVPN plugin is not installed. Install networkmanager-airvpn from AUR."
 }
 
 active_connection() {
