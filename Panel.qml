@@ -44,12 +44,10 @@ Panel {
 
   function refresh() {
     if (!depsProc.running) {
-      depsOut.text = ""
       depsProc.command = [helper, "deps"]
       depsProc.running = true
     }
     if (!statusProc.running) {
-      statusOut.text = ""
       statusProc.command = [helper, "status"]
       statusProc.running = true
     }
@@ -58,7 +56,6 @@ Panel {
 
   function loadList() {
     if (listProc.running) return
-    listOut.text = ""
     if (mode === "country") {
       listProc.command = [helper, "countries", "--filter", filter]
     } else {
@@ -128,7 +125,6 @@ Panel {
       if (!s) return
       cmd.push("--server", s.name)
     }
-    actionOut.text = ""
     actionProc.command = cmd
     busy = true
     actionProc.running = true
@@ -136,7 +132,6 @@ Panel {
 
   function disconnect() {
     if (busy) return
-    actionOut.text = ""
     actionProc.command = [helper, "disconnect"]
     busy = true
     actionProc.running = true
@@ -149,7 +144,6 @@ Panel {
 
   function saveSettings() {
     if (busy) return
-    actionOut.text = ""
     actionProc.command = [helper, "save-settings", "--api-key", apiKeyText, "--device", deviceText]
     busy = true
     actionProc.running = true
