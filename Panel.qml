@@ -44,7 +44,7 @@ Panel {
 
   readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/local.airvpn/bin/omarchy-airvpn"
   readonly property var modes: ["auto", "country", "server"]
-  readonly property var filters: ["auto", "2gbit", "20gbit"]
+  readonly property var filters: ["2gbit", "20gbit"]
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property color urgent: bar ? bar.urgent : Color.urgent
@@ -187,10 +187,11 @@ Panel {
 
   function loadList() {
     if (listProc.running) return
+    var activeFilter = filter || "auto"
     if (mode === "country") {
-      listProc.command = [helper, "countries", "--filter", filter]
+      listProc.command = [helper, "countries", "--filter", activeFilter]
     } else {
-      listProc.command = [helper, "servers", "--filter", filter, "--country", mode === "server" ? selectedCountry : ""]
+      listProc.command = [helper, "servers", "--filter", activeFilter, "--country", mode === "server" ? selectedCountry : ""]
     }
     listProc.running = true
   }
@@ -248,7 +249,7 @@ Panel {
   }
 
   function selectFilter(next) {
-    filter = next
+    filter = filter === next ? "" : next
     listIndex = 0
     loadList()
   }
@@ -256,7 +257,7 @@ Panel {
   function connectSelection() {
     if (pulseMissingSelection()) return
     if (!canConnect()) return
-    var cmd = [helper, "connect", "--mode", mode, "--filter", filter]
+    var cmd = [helper, "connect", "--mode", mode, "--filter", filter || "auto"]
     if (currentDevice !== "") cmd.push("--device", currentDevice)
     if (mode === "country") {
       if (!selectedCountry) return
@@ -556,12 +557,14 @@ Panel {
           PanelSeparator { Layout.fillWidth: true; foreground: root.foreground }
           PanelSectionHeader { text: "MODE"; foreground: root.foreground; fontFamily: root.fontFamily }
           RowLayout {
+            id: modeRow
             Layout.fillWidth: true
             spacing: Style.space(6)
+            readonly property real cellWidth: (width - spacing * (root.modes.length - 1)) / root.modes.length
             Repeater {
               model: root.modes
               Button {
-                Layout.fillWidth: true
+                Layout.preferredWidth: modeRow.cellWidth
                 text: Model.modeLabel(modelData)
                 bordered: true
                 active: root.mode === modelData
@@ -574,13 +577,15 @@ Panel {
 
           PanelSectionHeader { visible: root.mode !== "auto"; text: "FILTER"; foreground: root.foreground; fontFamily: root.fontFamily }
           RowLayout {
+            id: filterRow
             visible: root.mode !== "auto"
             Layout.fillWidth: true
             spacing: Style.space(6)
+            readonly property real cellWidth: (width - spacing * (root.filters.length - 1)) / root.filters.length
             Repeater {
               model: root.filters
               Button {
-                Layout.fillWidth: true
+                Layout.preferredWidth: filterRow.cellWidth
                 text: Model.filterLabel(modelData)
                 bordered: true
                 active: root.filter === modelData
