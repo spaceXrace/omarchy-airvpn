@@ -41,6 +41,10 @@ Panel {
   property int listIndex: 0
   property int hoverIndex: -1
   property bool selectionPulse: false
+  property bool cursorActive: false
+  property string focusSection: "mode"
+  property int modeIndex: 0
+  property int filterIndex: -1
 
   readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/local.airvpn/bin/omarchy-airvpn"
   readonly property var modes: ["auto", "country", "server"]
@@ -243,6 +247,7 @@ Panel {
 
   function selectMode(next) {
     mode = next
+    modeIndex = Math.max(0, modes.indexOf(next))
     listIndex = 0
     if (mode !== "server") selectedServer = ""
     loadList()
@@ -250,8 +255,58 @@ Panel {
 
   function selectFilter(next) {
     filter = filter === next ? "" : next
+    filterIndex = filter === "" ? -1 : filters.indexOf(filter)
     listIndex = 0
     loadList()
+  }
+
+  function visibleListLength() {
+    return mode === "auto" ? 0 : currentList().length
+  }
+
+  function ensureFocusSection() {
+    if (focusSection === "filter" && mode === "auto") focusSection = "mode"
+    if (focusSection === "list" && visibleListLength() === 0) focusSection = mode === "auto" ? "connect" : "filter"
+    if (listIndex >= visibleListLength()) listIndex = Math.max(0, visibleListLength() - 1)
+    if (modeIndex < 0) modeIndex = Math.max(0, modes.indexOf(mode))
+    if (modeIndex >= modes.length) modeIndex = modes.length - 1
+    if (filterIndex >= filters.length) filterIndex = filters.length - 1
+  }
+
+  function moveCursor(dx, dy) {
+    cursorActive = true
+    ensureFocusSection()
+    if (dx !== 0) {
+      if (focusSection === "mode") {
+        modeIndex = Math.max(0, Math.min(modes.length - 1, modeIndex + dx))
+      } else if (focusSection === "filter") {
+        var current = filterIndex >= 0 ? filterIndex : (dx > 0 ? -1 : filters.length)
+        filterIndex = Math.max(0, Math.min(filters.length - 1, current + dx))
+      }
+      return
+    }
+    if (dy === 0) return
+    if (focusSection === "mode") {
+      if (dy > 0) focusSection = mode === "auto" ? "connect" : "filter"
+    } else if (focusSection === "filter") {
+      if (dy < 0) focusSection = "mode"
+      else focusSection = visibleListLength() > 0 ? "list" : "connect"
+    } else if (focusSection === "list") {
+      if (dy < 0 && listIndex <= 0) focusSection = "filter"
+      else if (dy > 0 && listIndex >= visibleListLength() - 1) focusSection = "connect"
+      else listIndex = Math.max(0, Math.min(visibleListLength() - 1, listIndex + dy))
+    } else if (focusSection === "connect") {
+      if (dy < 0) focusSection = visibleListLength() > 0 ? "list" : (mode === "auto" ? "mode" : "filter")
+    }
+  }
+
+  function activateCursor() {
+    cursorActive = true
+    ensureFocusSection()
+    if (focusSection === "mode") selectMode(modes[modeIndex])
+    else if (focusSection === "filter") selectFilter(filters[Math.max(0, filterIndex)])
+    else if (focusSection === "list") selectRow(listIndex)
+    else if (focusSection === "connect") toggleVpn()
   }
 
   function connectSelection() {
@@ -401,20 +456,31 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
+    focusTarget: keyCatcher
     contentWidth: fittedContentWidth(Style.space(520))
     contentHeight: fittedContentHeight(contentColumn.implicitHeight, Style.space(620))
 
-    Flickable {
+    PanelKeyCatcher {
+      id: keyCatcher
       anchors.fill: parent
-      contentWidth: width
-      contentHeight: contentColumn.implicitHeight
-      clip: true
+      onMoveRequested: function(dx, dy) { root.moveCursor(dx, dy) }
+      onActivateRequested: root.activateCursor()
+      onCloseRequested: root.close()
+      onTabRequested: function(direction) { root.switchPanel(direction) }
+      onTextKey: function(t) {
+        if (t === "r" || t === "R") root.refresh()
+      }
 
-      ColumnLayout {
-        id: contentColumn
-        width: parent.width
-        spacing: Style.space(12)
+      Flickable {
+        anchors.fill: parent
+        contentWidth: width
+        contentHeight: contentColumn.implicitHeight
+        clip: true
 
+        ColumnLayout {
+          id: contentColumn
+          width: parent.width
+          spacing: Style.space(12)
         RowLayout {
           Layout.fillWidth: true
           spacing: Style.space(10)
@@ -567,6 +633,7 @@ Panel {
                 text: Model.modeLabel(modelData)
                 bordered: true
                 active: root.mode === modelData
+                hasCursor: root.cursorActive && root.focusSection === "mode" && root.modeIndex === index
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 onClicked: root.selectMode(modelData)
@@ -588,6 +655,7 @@ Panel {
                 text: Model.filterLabel(modelData)
                 bordered: true
                 active: root.filter === modelData
+                hasCursor: root.cursorActive && root.focusSection === "filter" && root.filterIndex === index
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 onClicked: root.selectFilter(modelData)
@@ -605,11 +673,13 @@ Panel {
             clip: true
             spacing: Style.space(4)
             model: root.currentList()
+            currentIndex: root.listIndex
+            onCurrentIndexChanged: if (currentIndex >= 0) positionViewAtIndex(currentIndex, ListView.Contain)
 
             delegate: Item {
               required property var modelData
               required property int index
-              readonly property bool rowHovered: root.hoverIndex === index
+              readonly property bool rowHovered: root.hoverIndex === index || (root.cursorActive && root.focusSection === "list" && root.listIndex === index)
               width: ListView.view.width
               height: delegateColumn.implicitHeight
 
@@ -677,6 +747,7 @@ Panel {
             text: root.connected ? "Disconnect" : "Connect"
             bordered: true
             active: root.connected
+            hasCursor: root.cursorActive && root.focusSection === "connect"
             opacity: root.connected || root.canConnect() ? 1 : 0.55
             foreground: root.foreground
             fontFamily: root.fontFamily
