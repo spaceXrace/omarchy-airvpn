@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONNECTION_NAME="${OMARCHY_AIRVPN_CONNECTION:-AirVPN}"
+STATUS_URL="${OMARCHY_AIRVPN_STATUS_URL:-https://airvpn.org/api/status/}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-airvpn"
+CACHE_FILE="$CACHE_DIR/status.json"
+CACHE_TTL="${OMARCHY_AIRVPN_CACHE_TTL:-300}"
+
+die_json() {
+  local message=$1
+  printf '{"ok":false,"error":%s}\n' "$(json_string "$message")"
+  exit 1
+}
+
+json_string() {
+  python -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
+}
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || die_json "Missing dependency: $1"
+}
+
+check_deps() {
+  need nmcli
+  need python
+  need curl
+  if ! nmcli -f VPN-TYPE connection show 2>/dev/null | grep -qx 'airvpn'; then
+    # The vpn-type only appears once a connection exists on some NetworkManager builds.
+    if ! nmcli connection add type vpn ifname -- vpn-type airvpn con-name __omarchy_airvpn_probe__ >/tmp/omarchy-airvpn-probe.log 2>&1; then
+      die_json "NetworkManager AirVPN plugin is not installed or not registered"
+    fi
+    nmcli connection delete __omarchy_airvpn_probe__ >/dev/null 2>&1 || true
+  fi
+}
+
+active_connection() {
+  nmcli -t -f NAME,TYPE connection show --active | awk -F: '$2 == "vpn" { print $1; exit }'
+}
+
+status_json() {
+  need nmcli
+  local active state server mode country protocol port device
+  active="$(active_connection || true)"
+  state="not-connected"
+  if [[ -n "$active" ]]; then state="connected"; fi
+
+  server=""
+  mode=""
+  country=""
+  protocol=""
+  port=""
+  device=""
+  if nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
+    local data
+    data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
+    server="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^server$/ { print $2; exit }')"
+    protocol="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^protocol$/ { print $2; exit }')"
+    port="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^port$/ { print $2; exit }')"
+    device="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^device$/ { print $2; exit }')"
+  fi
+
+  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" <<'PY'
+import json, sys
+print(json.dumps({
+  "ok": True,
+  "state": sys.argv[1],
+  "connected": sys.argv[1] == "connected",
+  "activeConnection": sys.argv[2],
+  "server": sys.argv[3],
+  "mode": sys.argv[4],
+  "country": sys.argv[5],
+  "protocol": sys.argv[6],
+  "port": sys.argv[7],
+  "device": sys.argv[8],
+}))
+PY
+}
+
+fetch_status() {
+  mkdir -p "$CACHE_DIR"
+  local now mtime
+  now="$(date +%s)"
+  mtime=0
+  if [[ -f "$CACHE_FILE" ]]; then mtime="$(stat -c %Y "$CACHE_FILE" 2>/dev/null || printf 0)"; fi
+  if [[ -f "$CACHE_FILE" && $((now - mtime)) -lt "$CACHE_TTL" ]]; then
+    printf '%s\n' "$CACHE_FILE"
+    return
+  fi
+  curl -fsSL "$STATUS_URL" -o "$CACHE_FILE.tmp"
+  mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+  printf '%s\n' "$CACHE_FILE"
+}
+
+normalize_status() {
+  local kind=${1:-servers}
+  local filter=${2:-auto}
+  local country=${3:-}
+  local file
+  file="$(fetch_status)"
+  python - "$file" "$kind" "$filter" "$country" <<'PY'
+import json, sys
+path, kind, bw_filter, country_filter = sys.argv[1:5]
+with open(path, "r", encoding="utf-8") as f:
+    raw = json.load(f)
+
+def walk(obj):
+    if isinstance(obj, dict):
+        yield obj
+        for value in obj.values():
+            yield from walk(value)
+    elif isinstance(obj, list):
+        for value in obj:
+            yield from walk(value)
+
+def pick(d, *names):
+    lower = {str(k).lower(): v for k, v in d.items()}
+    for name in names:
+        if name in d: return d[name]
+        v = lower.get(name.lower())
+        if v is not None: return v
+    return None
+
+servers = []
+seen = set()
+for d in walk(raw):
+    name = pick(d, "name", "server_name", "public_name", "server")
+    country_name = pick(d, "country_name", "country", "countryname")
+    country_code = pick(d, "country_code", "countrycode", "cc", "iso")
+    if not name or not (country_name or country_code):
+        continue
+    key = str(name).lower()
+    if key in seen:
+        continue
+    seen.add(key)
+    bandwidth = pick(d, "bandwidth", "bw", "speed", "max_bandwidth", "maxspeed") or 0
+    users = pick(d, "users", "current_users", "connected_users", "num_users") or 0
+    load = pick(d, "load", "server_load", "current_load") or 0
+    try: bandwidth_i = int(float(str(bandwidth).replace("Mbit", "").replace("Mbps", "").strip()))
+    except Exception: bandwidth_i = 0
+    try: users_i = int(float(users))
+    except Exception: users_i = 0
+    try: load_f = float(load)
+    except Exception: load_f = 0
+    row = {
+        "name": str(name),
+        "country": str(country_name or country_code or ""),
+        "countryCode": str(country_code or country_name or "").lower(),
+        "bandwidth": bandwidth_i,
+        "users": users_i,
+        "load": load_f,
+        "ping": pick(d, "ping", "latency", "ms") or "",
+    }
+    if bw_filter == "2gbit" and row["bandwidth"] and row["bandwidth"] != 2000: continue
+    if bw_filter == "20gbit" and row["bandwidth"] and row["bandwidth"] != 20000: continue
+    if country_filter and row["countryCode"].lower() != country_filter.lower() and row["country"].lower() != country_filter.lower(): continue
+    servers.append(row)
+
+servers.sort(key=lambda r: (r["load"], r["users"], r["name"].lower()))
+
+if kind == "countries":
+    countries = {}
+    for s in servers:
+        key = s["countryCode"] or s["country"].lower()
+        c = countries.setdefault(key, {"name": s["country"], "code": s["countryCode"], "servers": 0, "users": 0, "bandwidth": 0, "load": 0})
+        c["servers"] += 1
+        c["users"] += s["users"]
+        c["bandwidth"] += s["bandwidth"]
+        c["load"] += s["load"]
+    result = list(countries.values())
+    for c in result:
+        if c["servers"]: c["load"] = round(c["load"] / c["servers"], 1)
+    result.sort(key=lambda r: (r["load"], r["name"].lower()))
+    print(json.dumps({"ok": True, "countries": result}))
+else:
+    print(json.dumps({"ok": True, "servers": servers}))
+PY
+}
+
+connect_vpn() {
+  check_deps
+  local mode=auto filter=auto country= server= protocol=udp port=443 device=
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode) mode=$2; shift 2 ;;
+      --filter) filter=$2; shift 2 ;;
+      --country) country=$2; shift 2 ;;
+      --server) server=$2; shift 2 ;;
+      --protocol) protocol=$2; shift 2 ;;
+      --port) port=$2; shift 2 ;;
+      --device) device=$2; shift 2 ;;
+      *) die_json "Unknown connect option: $1" ;;
+    esac
+  done
+  if [[ "$mode" == auto ]]; then server=earth; fi
+  if [[ "$mode" == country ]]; then [[ -n "$country" ]] || die_json "Country is required"; server="$country"; fi
+  if [[ "$mode" == server ]]; then [[ -n "$server" ]] || die_json "Server is required"; fi
+
+  local data="server=$server,protocol=$protocol,port=$port"
+  if [[ -n "$device" ]]; then data="$data,device=$device"; fi
+
+  if ! nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
+    nmcli connection add type vpn ifname -- vpn-type airvpn con-name "$CONNECTION_NAME" vpn.data "$data" >/dev/null
+  else
+    nmcli connection modify "$CONNECTION_NAME" vpn.data "$data" >/dev/null
+  fi
+  nmcli connection up "$CONNECTION_NAME" >/dev/null
+  status_json
+}
+
+disconnect_vpn() {
+  need nmcli
+  nmcli connection down "$CONNECTION_NAME" >/dev/null 2>&1 || true
+  status_json
+}
+
+cmd=${1:-status}
+shift || true
+case "$cmd" in
+  status) status_json ;;
+  countries) filter=auto; while [[ $# -gt 0 ]]; do case "$1" in --filter) filter=$2; shift 2 ;; *) shift ;; esac; done; normalize_status countries "$filter" ;;
+  servers) filter=auto; country=""; while [[ $# -gt 0 ]]; do case "$1" in --filter) filter=$2; shift 2 ;; --country) country=$2; shift 2 ;; *) shift ;; esac; done; normalize_status servers "$filter" "$country" ;;
+  connect) connect_vpn "$@" ;;
+  disconnect) disconnect_vpn ;;
+  check) check_deps; printf '{"ok":true}\n' ;;
+  *) die_json "Unknown command: $cmd" ;;
+esac

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "local.airvpn",
+  "name": "AirVPN",
+  "version": "0.1.0",
+  "author": "Vincent",
+  "license": "MIT",
+  "description": "AirVPN status, connect, disconnect, country selection, server selection, and bandwidth filtering for Omarchy.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "AirVPN",
+    "description": "Manage AirVPN through NetworkManager's AirVPN VPN plugin.",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaults": {},
+    "schema": []
+  }
+}
