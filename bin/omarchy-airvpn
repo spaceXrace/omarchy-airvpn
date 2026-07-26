@@ -72,7 +72,7 @@ status_json() {
   fi
 
   python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" "$has_key" <<'PY'
-import json, sys
+import json, re, sys
 print(json.dumps({
   "ok": True,
   "state": sys.argv[1],
@@ -178,7 +178,7 @@ for d in walk(raw):
         continue
     # AirVPN status includes internal routing pseudo servers like CH1; they are
     # not user-selectable VPN endpoints in this panel.
-    if __import__("re").match(r"^[A-Z]{2}\d+$", str(name)):
+    if re.match(r"^[A-Z]{2}\d+$", str(name).strip(), re.IGNORECASE):
         continue
     key = str(name).lower()
     if key in seen:
@@ -208,10 +208,15 @@ for d in walk(raw):
     }
     if bw_filter == "2gbit" and row["bandwidth"] and row["bandwidth"] != 2000: continue
     if bw_filter == "20gbit" and row["bandwidth"] and row["bandwidth"] != 20000: continue
-    if country_filter and row["countryCode"].lower() != country_filter.lower() and row["country"].lower() != country_filter.lower(): continue
     servers.append(row)
 
-servers.sort(key=lambda r: (r["country"].lower(), r["load"], r["users"], r["name"].lower()))
+def country_priority(row):
+    if not country_filter:
+        return 1
+    cf = country_filter.lower()
+    return 0 if row["countryCode"].lower() == cf or row["country"].lower() == cf else 1
+
+servers.sort(key=lambda r: (country_priority(r), r["country"].lower(), r["load"], r["users"], r["name"].lower()))
 
 if kind == "countries":
     countries = {}

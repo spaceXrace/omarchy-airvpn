@@ -55,9 +55,13 @@ Panel {
   function selectedCountryLabel() {
     if (mode === "country") return selectedCountryName || selectedCountry || "country"
     var server = selectedServerInfo()
-    if (mode === "server" && server && server.country) return server.country
+    if (mode === "server" && server) return server.name
     if (mode === "auto") return "the best server"
     return "AirVPN"
+  }
+
+  function heroStatusText() {
+    return (connected ? "Connected to " : "Connect to ") + selectedCountryLabel()
   }
 
   function routeDetailText() {
@@ -71,12 +75,19 @@ Panel {
   }
 
   function barLabel() {
-    var server = selectedServerInfo()
-    if (connected && server) return server.name + " " + Model.formatBandwidth(server.bandwidth)
-    if (connected && currentServer) return currentServer
-    if (mode === "country" && selectedCountryName) return "VPN " + selectedCountryName
-    if (mode === "server" && selectedServer) return "VPN " + selectedServer
     return "VPN"
+  }
+
+  function countryRows() {
+    var rows = countries.slice()
+    if (!selectedCountry) return rows
+    rows.sort(function(a, b) {
+      var ak = a && (a.code || a.name) === selectedCountry ? 0 : 1
+      var bk = b && (b.code || b.name) === selectedCountry ? 0 : 1
+      if (ak !== bk) return ak - bk
+      return String(a.name || "").localeCompare(String(b.name || ""))
+    })
+    return rows
   }
 
   function serverSectionTitle(index) {
@@ -109,7 +120,7 @@ Panel {
   }
 
   function currentList() {
-    return mode === "country" ? countries : servers
+    return mode === "country" ? countryRows() : servers
   }
 
   function applyDeps(raw) {
@@ -159,14 +170,14 @@ Panel {
     var cmd = [helper, "connect", "--mode", mode, "--filter", filter]
     if (currentDevice !== "") cmd.push("--device", currentDevice)
     if (mode === "country") {
-      var c = countries[listIndex]
+      var c = currentList()[listIndex]
       if (!c) return
       selectedCountry = c.code || c.name
       selectedCountryName = c.name || selectedCountry
       cmd.push("--country", selectedCountry)
     }
     if (mode === "server") {
-      var s = servers[listIndex]
+      var s = currentList()[listIndex]
       if (!s) return
       selectedServer = s.name
       cmd.push("--server", s.name)
@@ -295,7 +306,7 @@ Panel {
             Layout.fillWidth: true
             Text {
               Layout.fillWidth: true
-              text: "Connect to " + root.selectedCountryLabel()
+              text: root.heroStatusText()
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
