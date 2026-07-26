@@ -42,6 +42,9 @@ Panel {
   readonly property color hoverFill: bar ? Style.hoverFillFor(bar.foreground, Color.accent) : "transparent"
   readonly property color selectedFill: bar ? Style.selectedFillFor(bar.foreground, Color.accent) : "transparent"
 
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
+
   function refresh() {
     if (!depsProc.running) { depsOut.text = ""; depsProc.command = [helper, "deps"]; depsProc.running = true }
     if (!statusProc.running) { statusOut.text = ""; statusProc.command = [helper, "status"]; statusProc.running = true }
