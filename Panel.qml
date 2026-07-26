@@ -198,13 +198,14 @@ Panel {
     }
   }
 
-  BarIconButton {
+  WidgetButton {
     id: button
     anchors.fill: parent
     bar: root.bar
     text: "VPN"
     foreground: root.iconColor
     fontFamily: root.fontFamily
+    fontSize: Style.font.bodySmall
     tooltipText: "AirVPN"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) root.toggleVpn()
