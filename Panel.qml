@@ -95,7 +95,15 @@ Panel {
     return "AirVPN"
   }
 
+  function pendingRouteLabel() {
+    if (pendingMode === "auto") return "the best server"
+    if (pendingMode === "country") return countryNameFor(pendingCountry || selectedCountryName || selectedCountry)
+    if (pendingMode === "server") return pendingServer || selectedServer || "server"
+    return selectedCountryLabel()
+  }
+
   function heroStatusText() {
+    if (!connected && busy && pendingMode) return "Connecting to " + pendingRouteLabel()
     if (!connected && mode === "country" && !selectedCountry) return "Select country"
     if (!connected && mode === "server" && !selectedServer) return "Select server"
     if (!connected) return "Connect to " + selectedCountryLabel()
