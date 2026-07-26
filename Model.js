@@ -5,8 +5,8 @@ function parseJson(raw, fallback) {
 function formatBandwidth(value) {
   var n = parseInt(value || 0, 10)
   if (!n) return ""
-  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + " Gbit"
-  return n + " Mbit"
+  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + " Gbit/s"
+  return n + " Mbit/s"
 }
 
 function formatLoad(value) {
@@ -22,8 +22,8 @@ function modeLabel(mode) {
 }
 
 function filterLabel(filter) {
-  if (filter === "2gbit") return "2 Gbit"
-  if (filter === "20gbit") return "20 Gbit"
+  if (filter === "2gbit") return "2 Gbit/s"
+  if (filter === "20gbit") return "20 Gbit/s"
   return "Auto"
 }
 

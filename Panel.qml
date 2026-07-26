@@ -91,7 +91,8 @@ Panel {
   }
 
   function serverSectionTitle(index) {
-    if (mode !== "server" || index <= 0 || index >= servers.length) return index === 0 && servers.length > 0 ? servers[0].country : ""
+    if (mode !== "server") return ""
+    if (index <= 0 || index >= servers.length) return index === 0 && servers.length > 0 ? servers[0].country : ""
     var current = servers[index] ? servers[index].country : ""
     var previous = servers[index - 1] ? servers[index - 1].country : ""
     return current !== previous ? current : ""
@@ -185,6 +186,21 @@ Panel {
     actionProc.command = cmd
     busy = true
     actionProc.running = true
+  }
+
+  function selectRow(index) {
+    listIndex = index
+    var row = currentList()[index]
+    if (!row) return
+    if (mode === "country") {
+      selectedCountry = row.code || row.name
+      selectedCountryName = row.name || selectedCountry
+      loadList()
+    } else if (mode === "server") {
+      selectedServer = row.name
+      selectedCountry = row.countryCode || selectedCountry
+      selectedCountryName = row.country || selectedCountryName
+    }
   }
 
   function disconnect() {
@@ -472,8 +488,7 @@ Panel {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  root.listIndex = index
-                  root.connectSelection()
+                  root.selectRow(index)
                 }
               }
 

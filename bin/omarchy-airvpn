@@ -186,7 +186,10 @@ for d in walk(raw):
     seen.add(key)
     bandwidth = pick(d, "bw_max", "max_bandwidth", "maxspeed", "bandwidth_max", "speed") or 0
     usage = pick(d, "bw", "bandwidth", "current_bandwidth", "bandwidth_current") or 0
-    users = pick(d, "users", "current_users", "connected_users", "num_users") or 0
+    users_raw = pick(d, "users", "current_users", "connected_users", "num_users")
+    if users_raw is None:
+        continue
+    users = users_raw or 0
     load = pick(d, "currentload", "load", "server_load", "current_load") or 0
     try: bandwidth_i = int(float(str(bandwidth).replace("Mbit", "").replace("Mbps", "").strip()))
     except Exception: bandwidth_i = 0
