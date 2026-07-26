@@ -560,11 +560,11 @@ Panel {
             id: modeRow
             Layout.fillWidth: true
             spacing: Style.space(6)
-            readonly property real cellWidth: (width - spacing * (root.modes.length - 1)) / root.modes.length
             Repeater {
               model: root.modes
               Button {
-                Layout.preferredWidth: modeRow.cellWidth
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 text: Model.modeLabel(modelData)
                 bordered: true
                 active: root.mode === modelData
