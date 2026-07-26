@@ -388,6 +388,7 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: ""
+    hasVisualContent: true
     foreground: root.iconColor
     fontFamily: root.fontFamily
     fontSize: Style.font.bodySmall
@@ -432,6 +433,7 @@ Panel {
 
           Button {
             text: ""
+            iconText: " "
             bordered: true
             active: root.connected
             opacity: root.connected || root.canConnect() ? 1 : 0.55
