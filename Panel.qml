@@ -420,7 +420,6 @@ Panel {
           spacing: Style.space(10)
 
           Item {
-            opacity: root.connected || root.canConnect() ? 1 : 0.55
             implicitWidth: Style.space(44)
             implicitHeight: Style.space(44)
 
