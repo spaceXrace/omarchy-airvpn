@@ -120,7 +120,7 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: connected ? "󰖂" : "󰦝"
+    text: "VPN"
     foreground: root.barIconColor
     fontFamily: root.fontFamily
     tooltipText: "AirVPN"
@@ -150,7 +150,7 @@ Panel {
         RowLayout {
           Layout.fillWidth: true
           spacing: Style.space(12)
-          Button { text: root.connected ? "󰖂" : "󰦝"; fontSize: Style.font.titleLarge; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; active: root.connected; onClicked: root.toggleVpn() }
+          Button { text: "VPN"; fontSize: Style.font.body; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; active: root.connected; onClicked: root.toggleVpn() }
           ColumnLayout {
             Layout.fillWidth: true
             spacing: Style.space(2)
