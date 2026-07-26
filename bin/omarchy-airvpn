@@ -4,9 +4,12 @@ set -euo pipefail
 CONNECTION_NAME="${OMARCHY_AIRVPN_CONNECTION:-AirVPN}"
 PACKAGE_NAME="networkmanager-airvpn-core"
 STATUS_URL="${OMARCHY_AIRVPN_STATUS_URL:-https://airvpn.org/api/status/}"
+EXIT_URL="${OMARCHY_AIRVPN_EXIT_URL:-https://airvpn.org/api/whatismyip/}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-airvpn"
 CACHE_FILE="$CACHE_DIR/status.json"
+EXIT_CACHE_FILE="$CACHE_DIR/exit.json"
 CACHE_TTL="${OMARCHY_AIRVPN_CACHE_TTL:-300}"
+EXIT_CACHE_TTL="${OMARCHY_AIRVPN_EXIT_CACHE_TTL:-20}"
 
 die_json() {
   local message=$1
@@ -47,6 +50,24 @@ active_connection() {
   nmcli -t -f NAME,TYPE connection show --active | awk -F: -v name="$CONNECTION_NAME" '$1 == name && $2 == "vpn" { print $1; exit }'
 }
 
+fetch_exit() {
+  mkdir -p "$CACHE_DIR"
+  local now mtime
+  now="$(date +%s)"
+  mtime=0
+  if [[ -f "$EXIT_CACHE_FILE" ]]; then mtime="$(stat -c %Y "$EXIT_CACHE_FILE" 2>/dev/null || printf 0)"; fi
+  if [[ -f "$EXIT_CACHE_FILE" && $((now - mtime)) -lt "$EXIT_CACHE_TTL" ]]; then
+    printf '%s\n' "$EXIT_CACHE_FILE"
+    return
+  fi
+  if curl -fsSL "$EXIT_URL" -o "$EXIT_CACHE_FILE.tmp"; then
+    mv "$EXIT_CACHE_FILE.tmp" "$EXIT_CACHE_FILE"
+  else
+    rm -f "$EXIT_CACHE_FILE.tmp"
+  fi
+  printf '%s\n' "$EXIT_CACHE_FILE"
+}
+
 status_json() {
   need nmcli
   local active state server mode country protocol port device has_key
@@ -71,8 +92,78 @@ status_json() {
     if nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'; then has_key="true"; fi
   fi
 
-  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" "$has_key" <<'PY'
+  local exit_file status_file
+  exit_file=""
+  status_file=""
+  if [[ "$state" == "connected" ]]; then
+    exit_file="$(fetch_exit)"
+    status_file="$(fetch_status)"
+  fi
+
+  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" "$has_key" "$exit_file" "$status_file" <<'PY'
 import json, re, sys
+
+def load_json(path):
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def walk(obj):
+    if isinstance(obj, dict):
+        yield obj
+        for value in obj.values():
+            yield from walk(value)
+    elif isinstance(obj, list):
+        for value in obj:
+            yield from walk(value)
+
+def pick(d, *names):
+    lower = {str(k).lower(): v for k, v in d.items()}
+    for name in names:
+        if name in d:
+            return d[name]
+        value = lower.get(name.lower())
+        if value is not None:
+            return value
+    return None
+
+def int_value(value):
+    try:
+        return int(float(str(value).replace("Mbit", "").replace("Mbps", "").strip()))
+    except Exception:
+        return 0
+
+exit_data = load_json(sys.argv[10]) if sys.argv[1] == "connected" else None
+status_data = load_json(sys.argv[11]) if sys.argv[1] == "connected" else None
+exit_server = ""
+exit_country = ""
+exit_country_code = ""
+exit_ip = ""
+exit_bandwidth = 0
+
+if isinstance(exit_data, dict) and exit_data.get("airvpn") is True:
+    exit_server = str(exit_data.get("server_name") or "")
+    geo = exit_data.get("geo") if isinstance(exit_data.get("geo"), dict) else {}
+    exit_country = str(geo.get("name") or exit_data.get("country_name") or "")
+    exit_country_code = str(geo.get("code") or exit_data.get("country_code") or "").lower()
+    exit_ip = str(exit_data.get("ip") or "")
+
+if exit_server and status_data is not None:
+    for d in walk(status_data):
+        name = pick(d, "name", "server_name", "public_name", "server")
+        if str(name or "").lower() != exit_server.lower():
+            continue
+        exit_bandwidth = int_value(pick(d, "bw_max", "max_bandwidth", "maxspeed", "bandwidth_max", "speed") or 0)
+        if not exit_country:
+            exit_country = str(pick(d, "country_name", "country", "countryname") or "")
+        if not exit_country_code:
+            exit_country_code = str(pick(d, "country_code", "countrycode", "cc", "iso") or "").lower()
+        break
+
 print(json.dumps({
   "ok": True,
   "state": sys.argv[1],
@@ -85,6 +176,11 @@ print(json.dumps({
   "port": sys.argv[7],
   "device": sys.argv[8],
   "hasApiKey": sys.argv[9] == "true",
+  "exitServer": exit_server,
+  "exitCountry": exit_country,
+  "exitCountryCode": exit_country_code,
+  "exitIp": exit_ip,
+  "exitBandwidth": exit_bandwidth,
 }))
 PY
 }

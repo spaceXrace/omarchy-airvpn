@@ -21,6 +21,10 @@ Panel {
   property string errorText: ""
   property string currentServer: ""
   property string currentDevice: ""
+  property string exitServer: ""
+  property string exitCountry: ""
+  property string exitIp: ""
+  property int exitBandwidth: 0
   property string apiKeyText: ""
   property string deviceText: ""
   property string mode: "auto"
@@ -81,14 +85,23 @@ Panel {
 
   function heroStatusText() {
     if (!connected) return "Connect to " + selectedCountryLabel()
+    if (exitCountry) return "Connected to " + exitCountry
     var server = activeServerInfo()
-    if (server) return "Connected to " + server.name
+    if (server && server.country) return "Connected to " + server.country
     if (currentServer && currentServer !== "earth") return "Connected to " + countryNameFor(currentServer)
     return "Connected to AirVPN"
   }
 
   function routeDetailText() {
     if (!connected) return "AirVPN"
+    if (exitServer || exitIp || exitBandwidth) {
+      var parts = []
+      if (exitServer) parts.push(exitServer)
+      if (exitIp) parts.push(exitIp)
+      var exitBw = Model.formatBandwidth(exitBandwidth)
+      if (exitBw) parts.push(exitBw)
+      return parts.join(" · ")
+    }
     var server = activeServerInfo()
     if (server) {
       var bw = Model.formatBandwidth(server.bandwidth)
@@ -166,6 +179,10 @@ Panel {
     hasApiKey = data.hasApiKey === true
     currentServer = data.server || data.activeConnection || ""
     currentDevice = data.device || ""
+    exitServer = connected ? (data.exitServer || "") : ""
+    exitCountry = connected ? (data.exitCountry || "") : ""
+    exitIp = connected ? (data.exitIp || "") : ""
+    exitBandwidth = connected ? (parseInt(data.exitBandwidth || 0, 10) || 0) : 0
     if (deviceText === "") deviceText = currentDevice
     statusText = connected ? "Connected" : "Not Connected"
   }
