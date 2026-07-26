@@ -146,7 +146,7 @@ normalize_status() {
   local file
   file="$(fetch_status)"
   python - "$file" "$kind" "$filter" "$country" <<'PY'
-import json, sys
+import json, re, sys
 path, kind, bw_filter, country_filter = sys.argv[1:5]
 with open(path, "r", encoding="utf-8") as f:
     raw = json.load(f)
