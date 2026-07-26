@@ -25,6 +25,7 @@ Panel {
   property string exitCountry: ""
   property string exitIp: ""
   property int exitBandwidth: 0
+  property bool exitLoading: false
   property string apiKeyText: ""
   property string deviceText: ""
   property string mode: "auto"
@@ -32,6 +33,9 @@ Panel {
   property string selectedCountry: ""
   property string selectedCountryName: ""
   property string selectedServer: ""
+  property string pendingMode: ""
+  property string pendingCountry: ""
+  property string pendingServer: ""
   property var countries: []
   property var servers: []
   property int listIndex: 0
@@ -85,6 +89,7 @@ Panel {
 
   function heroStatusText() {
     if (!connected) return "Connect to " + selectedCountryLabel()
+    if (exitLoading) return "Connected to AirVPN"
     if (exitCountry) return "Connected to " + exitCountry
     var server = activeServerInfo()
     if (server && server.country) return "Connected to " + server.country
@@ -94,6 +99,7 @@ Panel {
 
   function routeDetailText() {
     if (!connected) return "AirVPN"
+    if (exitLoading) return "Loading connection details..."
     if (exitServer || exitIp || exitBandwidth) {
       var parts = []
       if (exitServer) parts.push(exitServer)
@@ -113,6 +119,19 @@ Panel {
 
   function barLabel() {
     return "VPN"
+  }
+
+  function exitMatchesPending(data) {
+    if (!pendingMode) return true
+    if (pendingMode === "auto") return true
+    if (pendingMode === "server") return String(data.exitServer || "").toLowerCase() === pendingServer.toLowerCase()
+    if (pendingMode === "country") {
+      var code = String(data.exitCountryCode || "").toLowerCase()
+      var name = String(data.exitCountry || "").toLowerCase()
+      var target = pendingCountry.toLowerCase()
+      return code === target || name === target
+    }
+    return true
   }
 
   function countryRows() {
@@ -179,10 +198,17 @@ Panel {
     hasApiKey = data.hasApiKey === true
     currentServer = data.server || data.activeConnection || ""
     currentDevice = data.device || ""
-    exitServer = connected ? (data.exitServer || "") : ""
-    exitCountry = connected ? (data.exitCountry || "") : ""
-    exitIp = connected ? (data.exitIp || "") : ""
-    exitBandwidth = connected ? (parseInt(data.exitBandwidth || 0, 10) || 0) : 0
+    var freshExit = connected && exitMatchesPending(data)
+    exitServer = freshExit ? (data.exitServer || "") : ""
+    exitCountry = freshExit ? (data.exitCountry || "") : ""
+    exitIp = freshExit ? (data.exitIp || "") : ""
+    exitBandwidth = freshExit ? (parseInt(data.exitBandwidth || 0, 10) || 0) : 0
+    exitLoading = connected && (exitServer === "" || exitIp === "")
+    if (!connected || (freshExit && exitServer !== "" && exitIp !== "")) {
+      pendingMode = ""
+      pendingCountry = ""
+      pendingServer = ""
+    }
     if (deviceText === "") deviceText = currentDevice
     statusText = connected ? "Connected" : "Not Connected"
   }
@@ -226,6 +252,14 @@ Panel {
       selectedServer = s.name
       cmd.push("--server", s.name)
     }
+    pendingMode = mode
+    pendingCountry = selectedCountry
+    pendingServer = selectedServer
+    exitServer = ""
+    exitCountry = ""
+    exitIp = ""
+    exitBandwidth = 0
+    exitLoading = true
     actionProc.command = cmd
     busy = true
     actionProc.running = true

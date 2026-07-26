@@ -4,7 +4,7 @@ set -euo pipefail
 CONNECTION_NAME="${OMARCHY_AIRVPN_CONNECTION:-AirVPN}"
 PACKAGE_NAME="networkmanager-airvpn-core"
 STATUS_URL="${OMARCHY_AIRVPN_STATUS_URL:-https://airvpn.org/api/status/}"
-EXIT_URL="${OMARCHY_AIRVPN_EXIT_URL:-https://airvpn.org/api/whatismyip/}"
+EXIT_URL="${OMARCHY_AIRVPN_EXIT_URL:-https://airvpn.org/api/whatismyip/?ip=ipv4}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-airvpn"
 CACHE_FILE="$CACHE_DIR/status.json"
 EXIT_CACHE_FILE="$CACHE_DIR/exit.json"
@@ -96,6 +96,9 @@ status_json() {
   exit_file=""
   status_file=""
   if [[ "$state" == "connected" ]]; then
+    # Avoid showing details from the previous tunnel while NetworkManager is
+    # still bringing the new AirVPN route up.
+    rm -f "$EXIT_CACHE_FILE"
     exit_file="$(fetch_exit)"
     status_file="$(fetch_status)"
   fi
