@@ -431,23 +431,22 @@ Panel {
           Layout.fillWidth: true
           spacing: Style.space(10)
 
-          Button {
-            text: ""
-            iconText: " "
-            bordered: true
-            active: root.connected
+          Item {
             opacity: root.connected || root.canConnect() ? 1 : 0.55
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            implicitWidth: Style.space(42)
-            implicitHeight: Style.space(42)
-            onClicked: root.toggleVpn()
+            implicitWidth: Style.space(34)
+            implicitHeight: Style.space(34)
 
             AirCloudIcon {
               anchors.centerIn: parent
-              size: Style.space(28)
+              size: Style.space(30)
               color: root.connected ? root.foreground : root.dim
               ring: true
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.toggleVpn()
             }
           }
 
@@ -709,20 +708,21 @@ Panel {
 
     readonly property real sx: width / 240
     readonly property real sy: height / 240
+    readonly property real ringCloudScale: 0.82
     readonly property real cloudSx: width / 155
     readonly property real cloudSy: height / 155
     readonly property color cutColor: root.bar ? root.bar.background : Color.background
 
     function xFor(xValue) {
-      return ring ? width / 2 + xValue * sx : (xValue + 75) * cloudSx
+      return ring ? width / 2 + xValue * sx * ringCloudScale : (xValue + 75) * cloudSx
     }
 
     function yFor(yValue) {
-      return ring ? height / 2 - yValue * sy : (82 - yValue) * cloudSy
+      return ring ? height / 2 - yValue * sy * ringCloudScale : (82 - yValue) * cloudSy
     }
 
     function rFor(radiusValue) {
-      return ring ? radiusValue * Math.min(sx, sy) : radiusValue * Math.min(cloudSx, cloudSy)
+      return ring ? radiusValue * Math.min(sx, sy) * ringCloudScale : radiusValue * Math.min(cloudSx, cloudSy)
     }
 
     Rectangle {
@@ -760,8 +760,8 @@ Panel {
     Rectangle {
       x: icon.xFor(-45)
       y: icon.yFor(10)
-      width: icon.ring ? 95 * icon.sx : 95 * icon.cloudSx
-      height: icon.ring ? 30 * icon.sy : 30 * icon.cloudSy
+      width: icon.ring ? 95 * icon.sx * icon.ringCloudScale : 95 * icon.cloudSx
+      height: icon.ring ? 30 * icon.sy * icon.ringCloudScale : 30 * icon.cloudSy
       color: icon.color
     }
 
