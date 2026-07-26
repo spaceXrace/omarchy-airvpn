@@ -176,6 +176,10 @@ for d in walk(raw):
     country_code = pick(d, "country_code", "countrycode", "cc", "iso")
     if not name or not (country_name or country_code):
         continue
+    # AirVPN status includes internal routing pseudo servers like CH1; they are
+    # not user-selectable VPN endpoints in this panel.
+    if __import__("re").match(r"^[A-Z]{2}\d+$", str(name)):
+        continue
     key = str(name).lower()
     if key in seen:
         continue
@@ -207,21 +211,20 @@ for d in walk(raw):
     if country_filter and row["countryCode"].lower() != country_filter.lower() and row["country"].lower() != country_filter.lower(): continue
     servers.append(row)
 
-servers.sort(key=lambda r: (r["load"], r["users"], r["name"].lower()))
+servers.sort(key=lambda r: (r["country"].lower(), r["load"], r["users"], r["name"].lower()))
 
 if kind == "countries":
     countries = {}
     for s in servers:
         key = s["countryCode"] or s["country"].lower()
-        c = countries.setdefault(key, {"name": s["country"], "code": s["countryCode"], "servers": 0, "users": 0, "bandwidth": 0, "load": 0})
+        c = countries.setdefault(key, {"name": s["country"], "code": s["countryCode"], "servers": 0, "users": 0, "load": 0})
         c["servers"] += 1
         c["users"] += s["users"]
-        c["bandwidth"] += s["bandwidth"]
         c["load"] += s["load"]
     result = list(countries.values())
     for c in result:
         if c["servers"]: c["load"] = round(c["load"] / c["servers"], 1)
-    result.sort(key=lambda r: (r["load"], r["name"].lower()))
+    result.sort(key=lambda r: r["name"].lower())
     print(json.dumps({"ok": True, "countries": result}))
 else:
     print(json.dumps({"ok": True, "servers": servers}))

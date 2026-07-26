@@ -26,6 +26,8 @@ Panel {
   property string mode: "auto"
   property string filter: "auto"
   property string selectedCountry: ""
+  property string selectedCountryName: ""
+  property string selectedServer: ""
   property var countries: []
   property var servers: []
   property int listIndex: 0
@@ -41,6 +43,48 @@ Panel {
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
+
+  function selectedServerInfo() {
+    var name = selectedServer || currentServer
+    for (var i = 0; i < servers.length; i++) {
+      if (servers[i] && servers[i].name === name) return servers[i]
+    }
+    return null
+  }
+
+  function selectedCountryLabel() {
+    if (mode === "country") return selectedCountryName || selectedCountry || "country"
+    var server = selectedServerInfo()
+    if (mode === "server" && server && server.country) return server.country
+    if (mode === "auto") return "the best server"
+    return "AirVPN"
+  }
+
+  function routeDetailText() {
+    var server = selectedServerInfo()
+    if (server) {
+      var bw = Model.formatBandwidth(server.bandwidth)
+      return server.name + (bw ? " · " + bw : "")
+    }
+    if (currentServer) return currentServer
+    return "AirVPN"
+  }
+
+  function barLabel() {
+    var server = selectedServerInfo()
+    if (connected && server) return server.name + " " + Model.formatBandwidth(server.bandwidth)
+    if (connected && currentServer) return currentServer
+    if (mode === "country" && selectedCountryName) return "VPN " + selectedCountryName
+    if (mode === "server" && selectedServer) return "VPN " + selectedServer
+    return "VPN"
+  }
+
+  function serverSectionTitle(index) {
+    if (mode !== "server" || index <= 0 || index >= servers.length) return index === 0 && servers.length > 0 ? servers[0].country : ""
+    var current = servers[index] ? servers[index].country : ""
+    var previous = servers[index - 1] ? servers[index - 1].country : ""
+    return current !== previous ? current : ""
+  }
 
   function refresh() {
     if (!depsProc.running) {
@@ -118,11 +162,13 @@ Panel {
       var c = countries[listIndex]
       if (!c) return
       selectedCountry = c.code || c.name
+      selectedCountryName = c.name || selectedCountry
       cmd.push("--country", selectedCountry)
     }
     if (mode === "server") {
       var s = servers[listIndex]
       if (!s) return
+      selectedServer = s.name
       cmd.push("--server", s.name)
     }
     actionProc.command = cmd
@@ -202,7 +248,7 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "VPN"
+    text: root.barLabel()
     foreground: root.iconColor
     fontFamily: root.fontFamily
     fontSize: Style.font.bodySmall
@@ -218,7 +264,7 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    contentWidth: fittedContentWidth(Style.space(430))
+    contentWidth: fittedContentWidth(Style.space(520))
     contentHeight: fittedContentHeight(contentColumn.implicitHeight, Style.space(620))
 
     Flickable {
@@ -249,7 +295,7 @@ Panel {
             Layout.fillWidth: true
             Text {
               Layout.fillWidth: true
-              text: root.statusText
+              text: "Connect to " + root.selectedCountryLabel()
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
@@ -257,7 +303,7 @@ Panel {
             }
             Text {
               Layout.fillWidth: true
-              text: root.currentServer || (root.depsInstalled ? (root.hasApiKey ? "Select a route" : "Add API key") : "Install networkmanager-airvpn-core")
+              text: root.routeDetailText()
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -293,7 +339,7 @@ Panel {
           PanelSectionHeader { text: "DEPENDENCY"; foreground: root.foreground; fontFamily: root.fontFamily }
           Text {
             Layout.fillWidth: true
-            text: "Install networkmanager-airvpn-core from AUR. It provides NetworkManager's AirVPN service without the GNOME editor."
+            text: "Install networkmanager-airvpn-core from AUR."
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
@@ -301,7 +347,7 @@ Panel {
           }
           Button {
             Layout.fillWidth: true
-            text: "Install in terminal"
+            text: "Install networkmanager-airvpn-core"
             bordered: true
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -320,8 +366,8 @@ Panel {
           RowLayout {
             Layout.fillWidth: true
             spacing: Style.space(6)
-            Button { Layout.fillWidth: true; text: "Open API settings"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openApiSettings() }
-            Button { Layout.fillWidth: true; text: "Open devices"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openDevices() }
+            Button { Layout.fillWidth: true; text: "Get API key"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openApiSettings() }
+            Button { Layout.fillWidth: true; text: "VPN Devices"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openDevices() }
           }
 
           TextField {
@@ -391,10 +437,11 @@ Panel {
             }
           }
 
-          PanelSeparator { Layout.fillWidth: true; foreground: root.foreground }
-          PanelSectionHeader { text: root.mode === "country" ? "COUNTRIES" : "SERVERS"; foreground: root.foreground; fontFamily: root.fontFamily }
+          PanelSeparator { visible: root.mode !== "auto"; Layout.fillWidth: true; foreground: root.foreground }
+          PanelSectionHeader { visible: root.mode !== "auto"; text: root.mode === "country" ? "COUNTRIES" : "SERVERS"; foreground: root.foreground; fontFamily: root.fontFamily }
 
           ListView {
+            visible: root.mode !== "auto"
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(contentHeight, Style.space(260))
             clip: true
@@ -405,9 +452,9 @@ Panel {
               required property var modelData
               required property int index
               width: ListView.view.width
-              height: row.implicitHeight + Style.space(14)
+              height: delegateColumn.implicitHeight
               foreground: root.foreground
-              current: root.mode === "country" ? (root.selectedCountry === (modelData.code || modelData.name)) : (root.currentServer === modelData.name)
+              current: root.mode === "country" ? (root.selectedCountry === (modelData.code || modelData.name)) : (root.selectedServer === modelData.name || root.currentServer === modelData.name)
 
               MouseArea {
                 anchors.fill: parent
@@ -419,27 +466,42 @@ Panel {
                 }
               }
 
-              RowLayout {
-                id: row
+              Column {
+                id: delegateColumn
                 anchors.fill: parent
-                anchors.leftMargin: Style.space(10)
-                anchors.rightMargin: Style.space(10)
-                spacing: Style.space(10)
+                spacing: Style.space(4)
 
-                Text {
-                  Layout.fillWidth: true
-                  text: modelData.name
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                  elide: Text.ElideRight
+                PanelSectionHeader {
+                  visible: root.serverSectionTitle(index) !== ""
+                  text: root.serverSectionTitle(index)
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  height: visible ? implicitHeight : 0
                 }
-                Text {
-                  text: root.mode === "country" ? Model.countrySubtitle(modelData) : Model.serverSubtitle(modelData)
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                  elide: Text.ElideRight
+
+                RowLayout {
+                  id: row
+                  width: parent.width
+                  height: implicitHeight + Style.space(14)
+                  anchors.leftMargin: Style.space(10)
+                  anchors.rightMargin: Style.space(10)
+                  spacing: Style.space(10)
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: modelData.name
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    text: root.mode === "country" ? Model.countrySubtitle(modelData) : Model.serverSubtitle(modelData)
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    elide: Text.ElideRight
+                  }
                 }
               }
             }
