@@ -40,9 +40,10 @@ Panel {
   property var servers: []
   property int listIndex: 0
   property int hoverIndex: -1
+  property bool heroHover: false
   property bool selectionPulse: false
   property bool cursorActive: false
-  property string focusSection: "mode"
+  property string focusSection: "hero"
   property int modeIndex: 0
   property int filterIndex: -1
 
@@ -277,7 +278,11 @@ Panel {
     cursorActive = true
     ensureFocusSection()
     if (dx !== 0) {
-      if (focusSection === "mode") {
+      if (focusSection === "hero") {
+        if (dx > 0) focusSection = "settings"
+      } else if (focusSection === "settings") {
+        if (dx < 0) focusSection = "hero"
+      } else if (focusSection === "mode") {
         modeIndex = Math.max(0, Math.min(modes.length - 1, modeIndex + dx))
       } else if (focusSection === "filter") {
         var current = filterIndex >= 0 ? filterIndex : (dx > 0 ? -1 : filters.length)
@@ -286,7 +291,13 @@ Panel {
       return
     }
     if (dy === 0) return
-    if (focusSection === "mode") {
+    if (focusSection === "hero") {
+      if (dy > 0) focusSection = root.showSettings ? "settings" : "mode"
+    } else if (focusSection === "settings") {
+      if (dy < 0) focusSection = "hero"
+      else if (!root.showSettings && root.depsInstalled && root.hasApiKey) focusSection = "mode"
+    } else if (focusSection === "mode") {
+      if (dy < 0) focusSection = "hero"
       if (dy > 0) focusSection = mode === "auto" ? "connect" : "filter"
     } else if (focusSection === "filter") {
       if (dy < 0) focusSection = "mode"
@@ -303,9 +314,14 @@ Panel {
   function activateCursor() {
     cursorActive = true
     ensureFocusSection()
-    if (focusSection === "mode") selectMode(modes[modeIndex])
+    if (focusSection === "hero") toggleVpn()
+    else if (focusSection === "settings") root.showSettings = !root.showSettings
+    else if (focusSection === "mode") selectMode(modes[modeIndex])
     else if (focusSection === "filter") selectFilter(filters[Math.max(0, filterIndex)])
-    else if (focusSection === "list") selectRow(listIndex)
+    else if (focusSection === "list") {
+      selectRow(listIndex)
+      if (mode === "country") Qt.callLater(function() { root.connectSelection() })
+    }
     else if (focusSection === "connect") toggleVpn()
   }
 
@@ -486,8 +502,17 @@ Panel {
           spacing: Style.space(10)
 
           Item {
+            id: heroLogo
             implicitWidth: Style.space(44)
             implicitHeight: Style.space(44)
+
+            BorderSurface {
+              anchors.fill: parent
+              color: "transparent"
+              radius: Style.cornerRadius
+              visible: root.heroHover || (root.cursorActive && root.focusSection === "hero")
+              borderSpec: Border.controlSpec("hover-cursor", root.foreground, Color.accent)
+            }
 
             AirCloudIcon {
               anchors.centerIn: parent
@@ -498,7 +523,10 @@ Panel {
 
             MouseArea {
               anchors.fill: parent
+              hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
+              onEntered: root.heroHover = true
+              onExited: root.heroHover = false
               onClicked: root.toggleVpn()
             }
           }
@@ -533,6 +561,7 @@ Panel {
           Button {
             text: root.showSettings ? "Back" : "Settings"
             bordered: true
+            hasCursor: root.cursorActive && root.focusSection === "settings"
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.showSettings = !root.showSettings
