@@ -756,6 +756,7 @@ Panel {
         }
       }
     }
+    }
   }
 
   component AirCloudIcon: Item {
