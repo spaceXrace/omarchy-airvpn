@@ -401,7 +401,7 @@ Panel {
             text: "VPN"
             bordered: true
             active: root.connected
-            interactive: root.connected || root.canConnect()
+            enabled: root.connected || root.canConnect()
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
@@ -632,7 +632,7 @@ Panel {
             text: root.connected ? "Disconnect" : "Connect"
             bordered: true
             active: root.connected
-            interactive: root.connected || root.canConnect()
+            enabled: root.connected || root.canConnect()
             foreground: root.foreground
             fontFamily: root.fontFamily
             onClicked: root.toggleVpn()
