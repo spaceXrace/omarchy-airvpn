@@ -44,7 +44,7 @@ install_deps() {
 }
 
 active_connection() {
-  nmcli -t -f NAME,TYPE connection show --active | awk -F: '$2 == "vpn" { print $1; exit }'
+  nmcli -t -f NAME,TYPE connection show --active | awk -F: -v name="$CONNECTION_NAME" '$1 == name && $2 == "vpn" { print $1; exit }'
 }
 
 status_json() {

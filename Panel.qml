@@ -44,33 +44,57 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  function selectedServerInfo() {
-    var name = selectedServer || currentServer
+  function serverInfoByName(name) {
+    if (!name) return null
     for (var i = 0; i < servers.length; i++) {
       if (servers[i] && servers[i].name === name) return servers[i]
     }
     return null
   }
 
+  function selectedServerInfo() {
+    return serverInfoByName(selectedServer)
+  }
+
+  function activeServerInfo() {
+    return connected ? serverInfoByName(currentServer) : null
+  }
+
+  function countryNameFor(value) {
+    var key = String(value || "").toLowerCase()
+    for (var i = 0; i < countries.length; i++) {
+      var c = countries[i]
+      if (!c) continue
+      if (String(c.code || "").toLowerCase() === key || String(c.name || "").toLowerCase() === key) return c.name
+    }
+    return value
+  }
+
   function selectedCountryLabel() {
     if (mode === "country") return selectedCountryName || selectedCountry || "country"
     var server = selectedServerInfo()
     if (mode === "server" && server) return server.name
+    if (mode === "server" && selectedServer) return selectedServer
     if (mode === "auto") return "the best server"
     return "AirVPN"
   }
 
   function heroStatusText() {
-    return (connected ? "Connected to " : "Connect to ") + selectedCountryLabel()
+    if (!connected) return "Connect to " + selectedCountryLabel()
+    var server = activeServerInfo()
+    if (server) return "Connected to " + server.name
+    if (currentServer && currentServer !== "earth") return "Connected to " + countryNameFor(currentServer)
+    return "Connected to AirVPN"
   }
 
   function routeDetailText() {
-    var server = selectedServerInfo()
+    if (!connected) return "AirVPN"
+    var server = activeServerInfo()
     if (server) {
       var bw = Model.formatBandwidth(server.bandwidth)
       return server.name + (bw ? " · " + bw : "")
     }
-    if (currentServer) return currentServer
+    if (currentServer && currentServer !== "earth") return countryNameFor(currentServer)
     return "AirVPN"
   }
 
@@ -157,6 +181,7 @@ Panel {
   function selectMode(next) {
     mode = next
     listIndex = 0
+    if (mode !== "server") selectedServer = ""
     loadList()
   }
 
@@ -175,6 +200,7 @@ Panel {
       if (!c) return
       selectedCountry = c.code || c.name
       selectedCountryName = c.name || selectedCountry
+      selectedServer = ""
       cmd.push("--country", selectedCountry)
     }
     if (mode === "server") {
