@@ -387,14 +387,23 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.barLabel()
+    text: ""
     foreground: root.iconColor
     fontFamily: root.fontFamily
     fontSize: Style.font.bodySmall
+    fixedWidth: vertical ? -1 : Style.bar.iconSlot
+    fixedHeight: vertical ? Style.bar.iconSlot : -1
     tooltipText: "AirVPN"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) root.toggleVpn()
       else root.toggle()
+    }
+
+    AirCloudIcon {
+      anchors.centerIn: parent
+      size: Style.space(16)
+      color: root.iconColor
+      ring: false
     }
   }
 
@@ -422,13 +431,22 @@ Panel {
           spacing: Style.space(10)
 
           Button {
-            text: "VPN"
+            text: ""
             bordered: true
             active: root.connected
             opacity: root.connected || root.canConnect() ? 1 : 0.55
             foreground: root.foreground
             fontFamily: root.fontFamily
+            implicitWidth: Style.space(42)
+            implicitHeight: Style.space(42)
             onClicked: root.toggleVpn()
+
+            AirCloudIcon {
+              anchors.centerIn: parent
+              size: Style.space(28)
+              color: root.connected ? root.foreground : root.dim
+              ring: true
+            }
           }
 
           ColumnLayout {
@@ -674,6 +692,93 @@ Panel {
           }
         }
       }
+    }
+  }
+
+  component AirCloudIcon: Item {
+    id: icon
+
+    property real size: 16
+    property color color: Color.foreground
+    property bool ring: false
+
+    width: size
+    height: size
+
+    readonly property real sx: width / 240
+    readonly property real sy: height / 240
+    readonly property real cloudSx: width / 155
+    readonly property real cloudSy: height / 155
+    readonly property color cutColor: root.bar ? root.bar.background : Color.background
+
+    function xFor(xValue) {
+      return ring ? width / 2 + xValue * sx : (xValue + 75) * cloudSx
+    }
+
+    function yFor(yValue) {
+      return ring ? height / 2 - yValue * sy : (82 - yValue) * cloudSy
+    }
+
+    function rFor(radiusValue) {
+      return ring ? radiusValue * Math.min(sx, sy) : radiusValue * Math.min(cloudSx, cloudSy)
+    }
+
+    Rectangle {
+      visible: icon.ring
+      anchors.centerIn: parent
+      width: icon.rFor(200)
+      height: width
+      radius: width / 2
+      color: "transparent"
+      border.color: icon.color
+      border.width: Math.max(1, icon.size / 16)
+    }
+
+    Repeater {
+      model: [
+        { x: 0, y: 15, r: 35 },
+        { x: 35, y: 5, r: 25 },
+        { x: 60, y: -12, r: 18 },
+        { x: -30, y: 2, r: 22 },
+        { x: -55, y: -12, r: 16 },
+        { x: 30, y: -15, r: 20 },
+        { x: -35, y: -15, r: 20 }
+      ]
+
+      Rectangle {
+        x: icon.xFor(modelData.x) - icon.rFor(modelData.r)
+        y: icon.yFor(modelData.y) - icon.rFor(modelData.r)
+        width: icon.rFor(modelData.r) * 2
+        height: width
+        radius: width / 2
+        color: icon.color
+      }
+    }
+
+    Rectangle {
+      x: icon.xFor(-45)
+      y: icon.yFor(10)
+      width: icon.ring ? 95 * icon.sx : 95 * icon.cloudSx
+      height: icon.ring ? 30 * icon.sy : 30 * icon.cloudSy
+      color: icon.color
+    }
+
+    Rectangle {
+      x: icon.xFor(-18) - icon.rFor(24)
+      y: icon.yFor(-10) - icon.rFor(24)
+      width: icon.rFor(24) * 2
+      height: width
+      radius: width / 2
+      color: icon.cutColor
+    }
+
+    Rectangle {
+      x: icon.xFor(-5) - icon.rFor(22)
+      y: icon.yFor(-18) - icon.rFor(22)
+      width: icon.rFor(22) * 2
+      height: width
+      radius: width / 2
+      color: icon.color
     }
   }
 }
