@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "local.airvpn",
+  "id": "spaceXrace.airvpn",
   "name": "AirVPN",
   "version": "0.1.0",
   "author": "spaceXrace",
@@ -16,6 +16,7 @@
     "displayName": "AirVPN",
     "description": "Manage AirVPN through NetworkManager's AirVPN VPN plugin.",
     "category": "Network",
+    "defaultSection": "right",
     "allowMultiple": false,
     "defaults": {},
     "schema": []

@@ -38,7 +38,7 @@ For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --
 Then add it to the bar if it was not added automatically:
 
 ```sh
-omarchy bar plugin add local.airvpn
+omarchy bar move spaceXrace.airvpn --section right
 ```
 
 ## AirVPN Setup

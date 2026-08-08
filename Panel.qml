@@ -9,8 +9,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "local.airvpn"
-  ipcTarget: "local.airvpn"
+  moduleName: "spaceXrace.airvpn"
+  ipcTarget: "spaceXrace.airvpn"
 
   property bool connected: false
   property bool depsInstalled: false
@@ -47,7 +47,7 @@ Panel {
   property int modeIndex: 0
   property int filterIndex: -1
 
-  readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/local.airvpn/bin/omarchy-airvpn"
+  readonly property string helper: Quickshell.env("HOME") + "/.config/omarchy/plugins/spaceXrace.airvpn/bin/omarchy-airvpn"
   readonly property var modes: ["auto", "country", "server"]
   readonly property var filters: ["2gbit", "20gbit"]
   readonly property color foreground: bar ? bar.foreground : Color.foreground
