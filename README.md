@@ -35,6 +35,12 @@ omarchy plugin add https://github.com/spaceXrace/omarchy-airvpn --enable --yes
 
 For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --enable --yes`.
 
+## Uninstall
+
+```sh
+omarchy plugin remove spaceXrace.airvpn
+```
+
 ## AirVPN Setup
 
 Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, and save.
