@@ -35,15 +35,9 @@ omarchy plugin add https://github.com/spaceXrace/omarchy-airvpn --enable --yes
 
 For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --enable --yes`.
 
-Then add it to the bar if it was not added automatically:
-
-```sh
-omarchy bar move spaceXrace.airvpn --section right
-```
-
 ## AirVPN Setup
 
-Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, optionally set a device name, and save.
+Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, optionally set an AirVPN device name, and save.
 
 The helper manages a NetworkManager connection named `AirVPN` by default.
 
