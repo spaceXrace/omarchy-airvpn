@@ -26,6 +26,11 @@ vpn_data_value() {
   printf '%s' "$data" | tr ',' '\n' | awk -F= -v wanted="$key" '{ k=$1; v=$2; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]+$/, "", k); sub(/^[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); if (k == wanted) { print v; exit } }'
 }
 
+vpn_data_without() {
+  local key=$1 data=$2
+  printf '%s' "$data" | tr ',' '\n' | awk -F= -v unwanted="$key" '{ k=$1; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]+$/, "", k); if (k != unwanted && k != "") print }' | paste -sd, -
+}
+
 need() {
   command -v "$1" >/dev/null 2>&1 || die_json "Missing dependency: $1"
 }
@@ -75,7 +80,7 @@ fetch_exit() {
 
 status_json() {
   need nmcli
-  local active state server mode country protocol port device has_key
+  local active state server mode country protocol port has_key
   active="$(active_connection || true)"
   state="not-connected"
   if [[ -n "$active" ]]; then state="connected"; fi
@@ -85,7 +90,6 @@ status_json() {
   country=""
   protocol=""
   port=""
-  device=""
   has_key="false"
   if nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
     local data
@@ -93,7 +97,6 @@ status_json() {
     server="$(vpn_data_value server "$data")"
     protocol="$(vpn_data_value protocol "$data")"
     port="$(vpn_data_value port "$data")"
-    device="$(vpn_data_value device "$data")"
     if nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'; then has_key="true"; fi
   fi
 
@@ -108,7 +111,7 @@ status_json() {
     status_file="$(fetch_status)"
   fi
 
-  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$device" "$has_key" "$exit_file" "$status_file" <<'PY'
+  python - "$state" "$active" "$server" "$mode" "$country" "$protocol" "$port" "$has_key" "$exit_file" "$status_file" <<'PY'
 import json, re, sys
 
 def load_json(path):
@@ -145,8 +148,8 @@ def int_value(value):
     except Exception:
         return 0
 
-exit_data = load_json(sys.argv[10]) if sys.argv[1] == "connected" else None
-status_data = load_json(sys.argv[11]) if sys.argv[1] == "connected" else None
+exit_data = load_json(sys.argv[9]) if sys.argv[1] == "connected" else None
+status_data = load_json(sys.argv[10]) if sys.argv[1] == "connected" else None
 exit_server = ""
 exit_country = ""
 exit_country_code = ""
@@ -182,8 +185,7 @@ print(json.dumps({
   "country": sys.argv[5],
   "protocol": sys.argv[6],
   "port": sys.argv[7],
-  "device": sys.argv[8],
-  "hasApiKey": sys.argv[9] == "true",
+  "hasApiKey": sys.argv[8] == "true",
   "exitServer": exit_server,
   "exitCountry": exit_country,
   "exitCountryCode": exit_country_code,
@@ -205,66 +207,22 @@ has_api_key() {
   nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'
 }
 
-api_key_value() {
-  nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | awk -F= '$1 ~ /api-key/ { sub(/^[[:space:]]+/, "", $2); print $2; exit }'
-}
-
-resolve_device() {
-  local device=$1 api_key=$2 devices_file
-  [[ -n "$device" ]] || return 0
-  [[ -n "$api_key" ]] || printf '%s\n' "$device"
-  [[ -n "$api_key" ]] || return 0
-  devices_file="$CACHE_DIR/devices.json"
-  mkdir -p "$CACHE_DIR"
-  curl -fsSL -H "API-KEY: $api_key" "https://airvpn.org/api/devices/" -o "$devices_file.tmp"
-  mv "$devices_file.tmp" "$devices_file"
-  python - "$devices_file" "$device" <<'PY'
-import json, sys
-
-path, wanted = sys.argv[1:3]
-with open(path, "r", encoding="utf-8") as f:
-    data = json.load(f)
-
-wanted_l = wanted.lower()
-for device in data.get("devices", []):
-    name = str(device.get("name") or "")
-    device_id = str(device.get("id") or "")
-    if wanted_l in (name.lower(), device_id.lower()):
-        print(device_id or name)
-        break
-else:
-    print(wanted)
-PY
-}
-
 save_settings() {
   check_deps
-  local api_key="" device=""
+  local api_key=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --api-key) api_key=$2; shift 2 ;;
-      --device) device=$2; shift 2 ;;
       *) die_json "Unknown settings option: $1" ;;
     esac
   done
   ensure_connection
   if [[ -n "$api_key" ]]; then nmcli connection modify "$CONNECTION_NAME" vpn.secrets "api-key=$api_key" >/dev/null; fi
-  if [[ -z "$api_key" ]]; then api_key="$(api_key_value || true)"; fi
-  if [[ -n "$device" ]]; then
-    local data next
-    device="$(resolve_device "$device" "$api_key")"
-    data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
-    next="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '{ k=$1; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]+$/, "", k); if (k != "device" && k != "") print }' | paste -sd, -)"
-    if [[ -n "$next" ]]; then next="$next,device=$device"; else next="server=earth,protocol=udp,port=443,device=$device"; fi
-    nmcli connection modify "$CONNECTION_NAME" vpn.data "$next" >/dev/null
-  fi
+  local data next
+  data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
+  next="$(vpn_data_without device "$data")"
+  if [[ -n "$next" && "$next" != "$data" ]]; then nmcli connection modify "$CONNECTION_NAME" vpn.data "$next" >/dev/null; fi
   status_json
-}
-
-devices_json() {
-  # The AirVPN API endpoint for account devices is not public/stable. Keep the
-  # UI functional with a manual field unless a future endpoint is configured.
-  printf '{"ok":true,"devices":[]}\n'
 }
 
 fetch_status() {
@@ -384,7 +342,7 @@ PY
 
 connect_vpn() {
   check_deps
-  local mode=auto filter=auto country= server= protocol=udp port=443 device=
+  local mode=auto filter=auto country= server= protocol=udp port=443
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --mode) mode=$2; shift 2 ;;
@@ -393,7 +351,6 @@ connect_vpn() {
       --server) server=$2; shift 2 ;;
       --protocol) protocol=$2; shift 2 ;;
       --port) port=$2; shift 2 ;;
-      --device) device=$2; shift 2 ;;
       *) die_json "Unknown connect option: $1" ;;
     esac
   done
@@ -402,7 +359,6 @@ connect_vpn() {
   if [[ "$mode" == server ]]; then [[ -n "$server" ]] || die_json "Server is required"; fi
 
   local data="server=$server,protocol=$protocol,port=$port"
-  if [[ -n "$device" ]]; then device="$(resolve_device "$device" "$(api_key_value || true)")"; data="$data,device=$device"; fi
 
   ensure_connection "$data"
   has_api_key || die_json "AirVPN API key is required"
@@ -429,6 +385,5 @@ case "$cmd" in
   deps) deps_json ;;
   install-deps) install_deps ;;
   save-settings) save_settings "$@" ;;
-  devices) devices_json ;;
   *) die_json "Unknown command: $cmd" ;;
 esac

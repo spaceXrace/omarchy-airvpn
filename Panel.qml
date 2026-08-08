@@ -20,14 +20,12 @@ Panel {
   property string statusText: "Checking..."
   property string errorText: ""
   property string currentServer: ""
-  property string currentDevice: ""
   property string exitServer: ""
   property string exitCountry: ""
   property string exitIp: ""
   property int exitBandwidth: 0
   property bool exitLoading: false
   property string apiKeyText: ""
-  property string deviceText: ""
   property string mode: "auto"
   property string filter: "auto"
   property string selectedCountry: ""
@@ -230,7 +228,6 @@ Panel {
     connected = data.connected === true
     hasApiKey = data.hasApiKey === true
     currentServer = data.server || data.activeConnection || ""
-    currentDevice = data.device || ""
     var freshExit = connected && exitMatchesPending(data)
     exitServer = freshExit ? (data.exitServer || "") : ""
     exitCountry = freshExit ? (data.exitCountry || "") : ""
@@ -242,7 +239,6 @@ Panel {
       pendingCountry = ""
       pendingServer = ""
     }
-    if (deviceText === "") deviceText = currentDevice
     statusText = connected ? "Connected" : "Not Connected"
   }
 
@@ -345,7 +341,6 @@ Panel {
     if (pulseMissingSelection()) return
     if (!canConnect()) return
     var cmd = [helper, "connect", "--mode", mode, "--filter", filter || "auto"]
-    if (currentDevice !== "") cmd.push("--device", currentDevice)
     if (mode === "country") {
       if (!selectedCountry) return
       selectedServer = ""
@@ -397,7 +392,7 @@ Panel {
 
   function saveSettings() {
     if (busy) return
-    actionProc.command = [helper, "save-settings", "--api-key", apiKeyText, "--device", deviceText]
+    actionProc.command = [helper, "save-settings", "--api-key", apiKeyText]
     busy = true
     actionProc.running = true
   }
@@ -408,10 +403,6 @@ Panel {
 
   function openApiSettings() {
     Quickshell.execDetached(["xdg-open", "https://airvpn.org/apisettings/"])
-  }
-
-  function openDevices() {
-    Quickshell.execDetached(["xdg-open", "https://airvpn.org/devices/"])
   }
 
   Component.onCompleted: refresh()
@@ -631,12 +622,7 @@ Panel {
           PanelSeparator { Layout.fillWidth: true; foreground: root.foreground }
           PanelSectionHeader { text: "AIRVPN SETTINGS"; foreground: root.foreground; fontFamily: root.fontFamily }
 
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.space(6)
-            Button { Layout.fillWidth: true; text: "Get API key"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openApiSettings() }
-            Button { Layout.fillWidth: true; text: "VPN Devices"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openDevices() }
-          }
+          Button { Layout.fillWidth: true; text: "Get API key"; bordered: true; foreground: root.foreground; fontFamily: root.fontFamily; onClicked: root.openApiSettings() }
 
           TextField {
             Layout.fillWidth: true
@@ -644,13 +630,6 @@ Panel {
             text: root.apiKeyText
             password: true
             onTextChanged: root.apiKeyText = text
-          }
-
-          TextField {
-            Layout.fillWidth: true
-            placeholderText: "Device name (optional)"
-            text: root.deviceText
-            onTextChanged: root.deviceText = text
           }
 
           Button {

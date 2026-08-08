@@ -37,7 +37,7 @@ For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --
 
 ## AirVPN Setup
 
-Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, optionally set an AirVPN device name, and save.
+Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, paste the API key, and save.
 
 The helper manages a NetworkManager connection named `AirVPN` by default.
 
@@ -57,7 +57,7 @@ bin/omarchy-airvpn connect --mode auto --filter 20gbit
 bin/omarchy-airvpn connect --mode country --country ch
 bin/omarchy-airvpn connect --mode server --server Achernar
 bin/omarchy-airvpn disconnect
-bin/omarchy-airvpn save-settings --api-key YOUR_KEY --device YOUR_DEVICE
+bin/omarchy-airvpn save-settings --api-key YOUR_KEY
 ```
 
 ## Notes
