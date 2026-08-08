@@ -47,12 +47,6 @@ Open the AirVPN widget, click **Settings**, open the AirVPN API settings page, p
 
 The helper manages a NetworkManager connection named `AirVPN` by default.
 
-Override the connection name if needed:
-
-```sh
-export OMARCHY_AIRVPN_CONNECTION="My AirVPN"
-```
-
 ## Helper CLI
 
 ```sh
@@ -69,8 +63,6 @@ bin/omarchy-airvpn save-settings --api-key YOUR_KEY
 ## Notes
 
 AirVPN status data is cached for five minutes under `~/.cache/omarchy-airvpn/`.
-
-Set `OMARCHY_AIRVPN_STATUS_URL` if AirVPN changes the public status endpoint.
 
 This project is not affiliated with, endorsed by, or sponsored by AirVPN.
 
