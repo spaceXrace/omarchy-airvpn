@@ -193,6 +193,11 @@ ensure_connection() {
   if ! nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
     nmcli connection add type vpn ifname -- vpn-type airvpn con-name "$CONNECTION_NAME" vpn.data "$data" >/dev/null
   fi
+  nmcli connection modify "$CONNECTION_NAME" connection.autoconnect no >/dev/null
+}
+
+has_api_key() {
+  nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'
 }
 
 save_settings() {
@@ -361,6 +366,7 @@ connect_vpn() {
   if [[ -n "$device" ]]; then data="$data,device=$device"; fi
 
   ensure_connection "$data"
+  has_api_key || die_json "AirVPN API key is required"
   nmcli connection modify "$CONNECTION_NAME" vpn.data "$data" >/dev/null
   nmcli connection up "$CONNECTION_NAME" >/dev/null
   status_json
