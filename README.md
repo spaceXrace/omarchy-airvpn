@@ -13,11 +13,11 @@ Minimal AirVPN bar widget for Omarchy Quickshell.
 
 ## Screenshots
 
-![Auto mode](screenshots/auto.png)
+<img src="screenshots/auto.png" alt="Auto mode" width="420">
 
-![Country mode](screenshots/country.png)
+<img src="screenshots/country.png" alt="Country mode" width="420">
 
-![Server mode](screenshots/server.png)
+<img src="screenshots/server.png" alt="Server mode" width="420">
 
 ## Requirements
 

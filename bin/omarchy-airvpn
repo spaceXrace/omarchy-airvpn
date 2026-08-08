@@ -21,6 +21,11 @@ json_string() {
   python -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
 }
 
+vpn_data_value() {
+  local key=$1 data=$2
+  printf '%s' "$data" | tr ',' '\n' | awk -F= -v wanted="$key" '{ k=$1; v=$2; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]+$/, "", k); sub(/^[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); if (k == wanted) { print v; exit } }'
+}
+
 need() {
   command -v "$1" >/dev/null 2>&1 || die_json "Missing dependency: $1"
 }
@@ -85,10 +90,10 @@ status_json() {
   if nmcli connection show "$CONNECTION_NAME" >/dev/null 2>&1; then
     local data
     data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
-    server="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^server$/ { print $2; exit }')"
-    protocol="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^protocol$/ { print $2; exit }')"
-    port="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^port$/ { print $2; exit }')"
-    device="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 ~ /^device$/ { print $2; exit }')"
+    server="$(vpn_data_value server "$data")"
+    protocol="$(vpn_data_value protocol "$data")"
+    port="$(vpn_data_value port "$data")"
+    device="$(vpn_data_value device "$data")"
     if nmcli -s -g vpn.secrets connection show "$CONNECTION_NAME" 2>/dev/null | grep -q 'api-key'; then has_key="true"; fi
   fi
 
@@ -249,7 +254,7 @@ save_settings() {
     local data next
     device="$(resolve_device "$device" "$api_key")"
     data="$(nmcli -g vpn.data connection show "$CONNECTION_NAME" 2>/dev/null || true)"
-    next="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '$1 != "device" && $1 != "" { print }' | paste -sd, -)"
+    next="$(printf '%s' "$data" | tr ',' '\n' | awk -F= '{ k=$1; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]+$/, "", k); if (k != "device" && k != "") print }' | paste -sd, -)"
     if [[ -n "$next" ]]; then next="$next,device=$device"; else next="server=earth,protocol=udp,port=443,device=$device"; fi
     nmcli connection modify "$CONNECTION_NAME" vpn.data "$next" >/dev/null
   fi
