@@ -202,7 +202,7 @@ Panel {
     if (listProc.running) return
     var activeFilter = filter || "auto"
     if (mode === "country") {
-      listProc.command = [helper, "countries", "--filter", activeFilter]
+      listProc.command = [helper, "countries", "--filter", "auto"]
     } else {
       listProc.command = [helper, "servers", "--filter", activeFilter, "--country", mode === "server" ? selectedCountry : ""]
     }
@@ -274,7 +274,7 @@ Panel {
   }
 
   function ensureFocusSection() {
-    if (focusSection === "filter" && mode === "auto") focusSection = "mode"
+    if (focusSection === "filter" && mode !== "server") focusSection = "mode"
     if (focusSection === "filter" && filterIndex < 0) filterIndex = 0
     if (focusSection === "list" && visibleListLength() === 0) focusSection = mode === "auto" ? "connect" : "filter"
     if (listIndex >= visibleListLength()) listIndex = Math.max(0, visibleListLength() - 1)
@@ -309,16 +309,16 @@ Panel {
       else if (!root.showSettings && root.depsInstalled && root.hasApiKey) focusSection = "mode"
     } else if (focusSection === "mode") {
       if (dy < 0) focusSection = "hero"
-      if (dy > 0) focusSection = mode === "auto" ? "connect" : "filter"
+      if (dy > 0) focusSection = mode === "server" ? "filter" : (mode === "country" ? "list" : "connect")
     } else if (focusSection === "filter") {
       if (dy < 0) focusSection = "mode"
       else focusSection = visibleListLength() > 0 ? "list" : "connect"
     } else if (focusSection === "list") {
-      if (dy < 0 && listIndex <= 0) focusSection = "filter"
+      if (dy < 0 && listIndex <= 0) focusSection = mode === "server" ? "filter" : "mode"
       else if (dy > 0 && listIndex >= visibleListLength() - 1) focusSection = "connect"
       else listIndex = Math.max(0, Math.min(visibleListLength() - 1, listIndex + dy))
     } else if (focusSection === "connect") {
-      if (dy < 0) focusSection = visibleListLength() > 0 ? "list" : (mode === "auto" ? "mode" : "filter")
+      if (dy < 0) focusSection = visibleListLength() > 0 ? "list" : (mode === "server" ? "filter" : "mode")
     }
     ensureFocusSection()
   }
@@ -690,10 +690,10 @@ Panel {
             }
           }
 
-          PanelSectionHeader { visible: root.mode !== "auto"; text: "FILTER"; foreground: root.foreground; fontFamily: root.fontFamily }
+          PanelSectionHeader { visible: root.mode === "server"; text: "FILTER"; foreground: root.foreground; fontFamily: root.fontFamily }
           RowLayout {
             id: filterRow
-            visible: root.mode !== "auto"
+            visible: root.mode === "server"
             Layout.fillWidth: true
             spacing: Style.space(6)
             readonly property real cellWidth: (width - spacing * (root.filters.length - 1)) / root.filters.length
