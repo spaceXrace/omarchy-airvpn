@@ -38,7 +38,7 @@ For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --
 ## Uninstall
 
 ```sh
-omarchy plugin remove spaceXrace.airvpn
+omarchy plugin remove spacexrace.airvpn
 ```
 
 ## AirVPN Setup
