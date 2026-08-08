@@ -6,23 +6,26 @@ Minimal AirVPN bar widget for Omarchy Quickshell.
 
 - VPN icon in the bar.
 - Left click opens the AirVPN panel.
-- Right click toggles connect/disconnect.
 - Header shows connected/not connected state and current route.
 - Mode selector: Auto, Country, Server.
 - Bandwidth filter for server selection: 2 Gbit/s and 20 Gbit/s.
 - Country and server lists include available AirVPN status metadata when the API exposes it.
 
+## Screenshots
+
+![Auto mode](screenshots/auto.png)
+
+![Country mode](screenshots/country.png)
+
+![Server mode](screenshots/server.png)
+
 ## Requirements
 
-- Omarchy Quattro shell plugin support.
+- Omarchy Quattro.
 - `nmcli`.
 - `curl`.
 - `python`.
 - `networkmanager-airvpn-core` from AUR.
-
-This plugin intentionally treats `networkmanager-airvpn-core` as a hard dependency. It does not fall back to OpenVPN imports or implement AirVPN tunnel management itself.
-
-Using `networkmanager-airvpn-core` is a good fit because it gives Omarchy a small nmcli-only backend that owns the security-sensitive parts: AirVPN profile generation, NetworkManager VPN activation, OpenVPN execution, caching, and secrets. Reimplementing that inside a Quickshell plugin would mean duplicating VPN profile generation, private-key/profile storage, error handling, NetworkManager integration, and OpenVPN lifecycle code in a UI plugin. Depending on the NetworkManager plugin keeps this project focused on the Omarchy UI and lets NetworkManager remain the single source of truth for VPN state.
 
 ## Install
 
@@ -68,3 +71,7 @@ bin/omarchy-airvpn save-settings --api-key YOUR_KEY --device YOUR_DEVICE
 AirVPN status data is cached for five minutes under `~/.cache/omarchy-airvpn/`.
 
 Set `OMARCHY_AIRVPN_STATUS_URL` if AirVPN changes the public status endpoint.
+
+This project is not affiliated with, endorsed by, or sponsored by AirVPN.
+
+If you like this plugin, consider using my referral link: https://airvpn.org/?referred_by=619550
