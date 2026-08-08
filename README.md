@@ -9,7 +9,7 @@ Minimal AirVPN bar widget for Omarchy Quickshell.
 - Right click toggles connect/disconnect.
 - Header shows connected/not connected state and current route.
 - Mode selector: Auto, Country, Server.
-- Bandwidth filter: Auto, 2 Gbit, 20 Gbit.
+- Bandwidth filter for server selection: 2 Gbit/s and 20 Gbit/s.
 - Country and server lists include available AirVPN status metadata when the API exposes it.
 
 ## Requirements
@@ -24,13 +24,13 @@ This plugin intentionally treats `networkmanager-airvpn-core` as a hard dependen
 
 Using `networkmanager-airvpn-core` is a good fit because it gives Omarchy a small nmcli-only backend that owns the security-sensitive parts: AirVPN profile generation, NetworkManager VPN activation, OpenVPN execution, caching, and secrets. Reimplementing that inside a Quickshell plugin would mean duplicating VPN profile generation, private-key/profile storage, error handling, NetworkManager integration, and OpenVPN lifecycle code in a UI plugin. Depending on the NetworkManager plugin keeps this project focused on the Omarchy UI and lets NetworkManager remain the single source of truth for VPN state.
 
-## Install Locally
-
-From this repo:
+## Install
 
 ```sh
-omarchy plugin add file:///home/vincent/omarchy-airvpn --enable --yes
+omarchy plugin add https://github.com/spaceXrace/omarchy-airvpn --enable --yes
 ```
+
+For local development, use `omarchy plugin add file:///path/to/omarchy-airvpn --enable --yes`.
 
 Then add it to the bar if it was not added automatically:
 

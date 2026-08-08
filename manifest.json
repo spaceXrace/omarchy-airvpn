@@ -3,7 +3,7 @@
   "id": "local.airvpn",
   "name": "AirVPN",
   "version": "0.1.0",
-  "author": "Vincent",
+  "author": "spaceXrace",
   "license": "MIT",
   "description": "AirVPN status, connect, disconnect, country selection, server selection, and bandwidth filtering for Omarchy.",
   "kinds": [
